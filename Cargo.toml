@@ -1,0 +1,3 @@
+[workspace]
+resolve="2"
+members= ["smppserver"]
