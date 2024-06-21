@@ -5,6 +5,7 @@ use thiserror::Error;
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub listen_addr: String,
+    pub worker_threads: u8,
 }
 
 #[derive(Error, Debug)]

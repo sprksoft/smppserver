@@ -1,0 +1,77 @@
+<html>
+  <head>
+  </head>
+  <body>
+    <h1>smppgc</h1>
+    <div id="mesgs"></div>
+    <div id="pending_mesgs" style="color: gray;"></div>
+    <input id="sendinput" type="text">
+    <button id="sendbtn">Send</button>
+    <script>
+      const CLOSED=3;
+      let local_id = undefined;
+      let local_key = "";
+
+      const sendbtn = document.getElementById("sendbtn");
+      const sendinput = document.getElementById("sendinput");
+      const mesgs = document.getElementById("mesgs");
+      const pending_mesgs = document.getElementById("pending_mesgs");
+
+      function on_message(message, sender){
+        console.log("Got message from "+sender+" : "+message);
+        if (sender == local_id){ // message comes from me
+          let mesgs = pending_mesgs.childNodes;
+          for (let i=0; i<mesgs.length; i++){
+            let mesg = mesgs[i];
+            if (mesg.innerText == message){
+              pending_mesgs.remove(mesg);
+              break;
+            }
+          }
+        }
+        let msg = document.createElement("P");
+        msg.innerText=message;
+        mesgs.appendChild(msg);
+      }
+
+      function connect(key){
+        if (key !== undefined){
+          key="?"+key;
+        }else{
+          key="";
+        }
+        const ws = new WebSocket("ws://localhost:8080/smpp/gc"+key);
+
+        ws.onmessage = async (e) =>{
+          let data = e.data;
+          if (data instanceof Blob){
+            let dv = new DataView(await e.data.slice(0, 4).arrayBuffer())
+            const sender_id = dv.getUint16(0, false);
+            if (sender_id == 0){ // key and id are send as the setup_user(0)
+              local_id = dv.getUint16(2, false);
+              local_key = await e.data.slice(4).text();
+              console.log("Setup packet "+local_id+" "+local_key);
+            }else{
+              let message = await e.data.slice(2).text();
+              on_message(message, sender_id);
+            }
+          }
+        };
+
+        return ws
+      }
+
+      let ws = connect(local_key);
+      sendbtn.addEventListener("click", ()=>{
+        if (ws.readyState == CLOSED){
+          ws = connect(local_key);
+        }
+        ws.send(sendinput.value);
+        let msg = document.createElement("P");
+        msg.innerText=sendinput.value;
+        pending_mesgs.appendChild(msg);
+        sendinput.value="";
+      })
+    </script>
+  </body>
+</html>
