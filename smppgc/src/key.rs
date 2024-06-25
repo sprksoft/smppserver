@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use base64::Engine;
-use tungstenite::Message;
 use uuid::Uuid;
 
 pub struct Key {
@@ -15,7 +13,7 @@ impl Key {
             anon: true,
         }
     }
-    pub fn parse_str(string: &str) -> Option<Self> {
+    pub fn parse_str(string: &str) -> Option<(Self, String)> {
         let anon = if string.starts_with('l') {
             false
         } else if string.starts_with('a') {
@@ -23,8 +21,9 @@ impl Key {
         } else {
             return None;
         };
+        let username = string.rfind('|');
         let uuid = Uuid::parse_str(&string[1..]).ok()?;
-        Some(Self { uuid, anon })
+        Some((Self { uuid, anon }, username))
     }
     pub fn to_string(&self) -> String {
         self.uuid.as_simple().to_string()

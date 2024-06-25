@@ -9,13 +9,36 @@
     <button id="sendbtn">Send</button>
     <script>
       const CLOSED=3;
+      const SUBID_SETUP=0;
+      const SUBID_USERJOIN=1;
       let local_id = undefined;
       let local_key = "";
+      let users = {};
 
       const sendbtn = document.getElementById("sendbtn");
       const sendinput = document.getElementById("sendinput");
       const mesgs = document.getElementById("mesgs");
       const pending_mesgs = document.getElementById("pending_mesgs");
+
+      async function on_special_message(sub_id, data, dv, start_index){
+        switch(sub_id){
+          case SUBID_SETUP:
+            local_id = dv.getUint16(start_index, false);
+            local_key = await data.slice(start_index+2).text();
+            console.log("Setup packet "+local_id+" "+local_key);
+            break;
+          case SUBID_USERJOIN:
+            let id = dv.getUint16(start_index, false);
+            let username = await data.slice(start_index+2).text()
+            console.log("user join: "+username+" ("+id+")");
+            users[id] = username;
+            break;
+          default:
+            console.error("Invalid subid ("+sub_id+") packet recieved");
+            break;
+        }
+
+      }
 
       function on_message(message, sender){
         console.log("Got message from "+sender+" : "+message);
@@ -29,9 +52,18 @@
             }
           }
         }
-        let msg = document.createElement("P");
-        msg.innerText=message;
-        mesgs.appendChild(msg);
+        let username = users[sender];
+
+        let username_el = document.createElement("span");
+        username_el.style="font-weight: bold;";
+        username_el.innerText=username+": ";
+        let content_el = document.createElement("span");
+        content_el.innerText=message;
+
+        let msg_el = document.createElement("div");
+        msg_el.appendChild(username_el);
+        msg_el.appendChild(content_el);
+        mesgs.appendChild(msg_el);
       }
 
       function connect(key){
@@ -45,12 +77,11 @@
         ws.onmessage = async (e) =>{
           let data = e.data;
           if (data instanceof Blob){
-            let dv = new DataView(await e.data.slice(0, 4).arrayBuffer())
+            let dv = new DataView(await e.data.slice(0, 5).arrayBuffer())
             const sender_id = dv.getUint16(0, false);
-            if (sender_id == 0){ // key and id are send as the setup_user(0)
-              local_id = dv.getUint16(2, false);
-              local_key = await e.data.slice(4).text();
-              console.log("Setup packet "+local_id+" "+local_key);
+            if (sender_id == 0){ // user 0 is special message
+              let sub_id = dv.getUint8(2, false);
+              await on_special_message(sub_id, e.data, dv, 3);
             }else{
               let message = await e.data.slice(2).text();
               on_message(message, sender_id);

@@ -1,2 +1,2 @@
 listen_addr="127.0.0.1:8080"
-worker_threads=8
+max_stored_messages=50
