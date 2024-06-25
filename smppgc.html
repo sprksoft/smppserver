@@ -3,6 +3,9 @@
   </head>
   <body>
     <h1>smppgc</h1>
+    <label>username: </label>
+    <input id="username_field" type="text">
+    <button id="connectbtn">Connect</button>
     <div id="mesgs"></div>
     <div id="pending_mesgs" style="color: gray;"></div>
     <input id="sendinput" type="text">
@@ -13,12 +16,15 @@
       const SUBID_USERJOIN=1;
       let local_id = undefined;
       let local_key = "";
+      let local_name = "name";
       let users = {};
 
       const sendbtn = document.getElementById("sendbtn");
       const sendinput = document.getElementById("sendinput");
       const mesgs = document.getElementById("mesgs");
       const pending_mesgs = document.getElementById("pending_mesgs");
+      const username_field = document.getElementById("username_field");
+      const connectbtn = document.getElementById("connectbtn");
 
       async function on_special_message(sub_id, data, dv, start_index){
         switch(sub_id){
@@ -42,7 +48,9 @@
 
       function on_message(message, sender){
         console.log("Got message from "+sender+" : "+message);
+        let username = users[sender];
         if (sender == local_id){ // message comes from me
+          username = local_name;
           let mesgs = pending_mesgs.childNodes;
           for (let i=0; i<mesgs.length; i++){
             let mesg = mesgs[i];
@@ -52,7 +60,6 @@
             }
           }
         }
-        let username = users[sender];
 
         let username_el = document.createElement("span");
         username_el.style="font-weight: bold;";
@@ -66,13 +73,12 @@
         mesgs.appendChild(msg_el);
       }
 
-      function connect(key){
-        if (key !== undefined){
-          key="?"+key;
-        }else{
-          key="";
+      function connect(key, username){
+        let query=username;
+        if (key !== undefined && key !== ""){
+          query+="&"+key;
         }
-        const ws = new WebSocket("ws://localhost:8080/smpp/gc"+key);
+        const ws = new WebSocket("ws://localhost:8080/smpp/gc?"+query);
 
         ws.onmessage = async (e) =>{
           let data = e.data;
@@ -88,15 +94,28 @@
             }
           }
         };
+        ws.onopen = async (e) => {
+          connectbtn.innerText = "Reconnect";
+        }
+        ws.onclose = async (e) => {
+          connectbtn.innerText = "Connect";
+          console.log(e);
+        }
 
         return ws
       }
 
-      let ws = connect(local_key);
-      sendbtn.addEventListener("click", ()=>{
-        if (ws.readyState == CLOSED){
-          ws = connect(local_key);
+      let ws = undefined;
+      connectbtn.addEventListener("click", ()=>{
+        if (ws !== undefined){
+          ws.close();
         }
+        mesgs.innerHTML="";
+        pending_mesgs.innerHTML="";
+        local_name = username_field.value;
+        ws = connect(local_key, local_name);
+      })
+      sendbtn.addEventListener("click", ()=>{
         ws.send(sendinput.value);
         let msg = document.createElement("P");
         msg.innerText=sendinput.value;

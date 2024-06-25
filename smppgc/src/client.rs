@@ -13,7 +13,7 @@ use log::*;
 use thiserror::Error;
 use tokio_tungstenite::{tungstenite, WebSocketStream};
 
-use crate::key::Key;
+use crate::usernamemgr::Key;
 
 #[derive(Clone, Debug)]
 pub struct Message {
@@ -81,11 +81,12 @@ impl ClientFactory {
         &mut self,
         mut ws: WebSocketStream<TcpStream>,
         key: Key,
+        username: String,
     ) -> Result<Client> {
         let id = self.reserve_id();
         ws.send(Message::new_setup(key, id)).await?;
         let info = ClientInfo {
-            username: format!("unnamed_user_{}", id).into(),
+            username: username.into(),
             id,
         };
         Ok(Client { ws, info })

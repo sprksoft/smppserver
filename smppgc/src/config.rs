@@ -6,6 +6,8 @@ use thiserror::Error;
 pub struct Config {
     pub listen_addr: String,
     pub max_stored_messages: usize,
+    pub name_reserve_time: u64,
+    pub max_users: u16,
 }
 
 #[derive(Error, Debug)]
