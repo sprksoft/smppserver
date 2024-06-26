@@ -12,7 +12,11 @@ mod usernamemgr;
 use config::Config;
 use tokio::{
     net::{TcpListener, TcpStream},
-    sync::broadcast::{self, error::RecvError, Receiver, Sender},
+    sync::broadcast::{
+        self,
+        error::{RecvError, TryRecvError},
+        Receiver, Sender,
+    },
 };
 use tokio_tungstenite::{
     accept_hdr_async,
@@ -27,6 +31,7 @@ use usernamemgr::NameLeaseError;
 
 use crate::{
     client::{ClientFactory, ClientInfo, RecieverError},
+    dropvec::DropVec,
     usernamemgr::Key,
     usernamemgr::UsernameManager,
 };
@@ -36,15 +41,17 @@ async fn handle_client(
     mut join_reciever: Receiver<ClientInfo>,
     left_sender: Sender<ClientInfo>,
     messages_sender: Sender<Message>,
+    mut messages_receiver: Receiver<Message>,
 ) {
-    let mut messages_receiver = messages_sender.subscribe();
     loop {
         tokio::select! {
             mesg = client.try_recv() => {
                 match mesg {
                     Ok(mesg) => {
-                        trace!("got message from {}: {}", mesg.sender, mesg.content);
-                        let _ = messages_sender.send(mesg);
+                        if mesg.is_valid(){
+                            trace!("got message from {}: {}", mesg.sender, mesg.content);
+                            let _ = messages_sender.send(mesg);
+                        }
                     },
                     Err(RecieverError::Disconected) => {
                         break;
@@ -167,11 +174,13 @@ async fn handle_client_preconnect(
 
 async fn handle_connection(
     stream: TcpStream,
-    client_factory: &mut ClientFactory,
-    clients: &mut HashSet<ClientInfo>,
     unmgr: &mut UsernameManager,
     config: &Config,
+    client_factory: &mut ClientFactory,
+    clients: &mut HashSet<ClientInfo>,
+    messages: &mut DropVec<Message>,
     messages_sender: Sender<Message>,
+    messages_receiver: Receiver<Message>,
     join_sender: Sender<ClientInfo>,
     left_sender: Sender<ClientInfo>,
 ) {
@@ -209,17 +218,24 @@ async fn handle_connection(
             };
 
             trace!("User joined {}", client.client_info().id());
-            for other_client in clients.iter() {
-                match client.forward_client(other_client).await {
-                    Ok(_) => {}
-                    Err(RecieverError::Invalid) => {
-                        error!("Socket error when forwarding already present clients.");
-                        return;
-                    }
-                    Err(RecieverError::Disconected) => {
-                        return;
-                    }
-                };
+            match client.forward_all_clients(clients.iter()).await {
+                Ok(_) => {}
+                Err(RecieverError::Invalid) => {
+                    error!("Socket error when forwarding already present clients.");
+                    return;
+                }
+                Err(RecieverError::Disconected) => {
+                    return;
+                }
+            };
+            match client.forward_all(messages.iter()).await {
+                Ok(_) => {}
+                Err(RecieverError::Invalid) => {
+                    error!("Socket error when forwarding messages.");
+                }
+                Err(RecieverError::Disconected) => {
+                    return;
+                }
             }
 
             clients.insert(client.client_info());
@@ -230,6 +246,7 @@ async fn handle_connection(
                 join_sender.subscribe(),
                 left_sender,
                 messages_sender,
+                messages_receiver,
             ));
         }
         Err(err) => {
@@ -252,11 +269,12 @@ async fn main() {
         }
     };
 
-    let (messages_sender, _) = broadcast::channel(20);
+    let (messages_sender, mut messages_receiver) = broadcast::channel(20);
     let (join_sender, _) = broadcast::channel(20);
     let (left_sender, mut left_receiver) = broadcast::channel(20);
 
     let mut clients = HashSet::new();
+    let mut messages = DropVec::new(config.max_stored_messages);
     let mut unmgr = UsernameManager::new(config.name_reserve_time);
 
     let server = TcpListener::bind(&config.listen_addr).await.unwrap();
@@ -266,7 +284,18 @@ async fn main() {
     loop {
         tokio::select! {
             Ok((stream, _)) = server.accept() => {
-                    handle_connection(stream, &mut client_factory, &mut clients, &mut unmgr, &config, messages_sender.clone(), join_sender.clone(), left_sender.clone()).await;
+                loop{
+                    match messages_receiver.try_recv() {
+                        Ok(mesg) => messages.push(mesg),
+                        Err(TryRecvError::Closed) => {}
+                        Err(TryRecvError::Lagged(_)) => {}
+                        Err(TryRecvError::Empty) => {
+                            break;
+                        }
+                    }
+                }
+                let messages_receiver = messages_sender.subscribe();
+                handle_connection(stream, &mut unmgr, &config, &mut client_factory, &mut clients, &mut messages,  messages_sender.clone(), messages_receiver, join_sender.clone(), left_sender.clone()).await;
             }
             left_client = left_receiver.recv() => {
                 match left_client{
@@ -279,6 +308,19 @@ async fn main() {
                     },
                     Err(RecvError::Lagged(count))=>{
                         panic!("main client_left receiver lagged behind {} times. Panicking because ghost clients will be left behind", count);
+                    }
+                }
+            },
+            mesg = messages_receiver.recv() => {
+                match mesg{
+                    Ok(mesg) => {
+                        messages.push(mesg);
+                    },
+                    Err(RecvError::Closed) => {
+                        return;
+                    },
+                    Err(RecvError::Lagged(count))=>{
+                        error!("Lost {} messages", count);
                     }
                 }
             }

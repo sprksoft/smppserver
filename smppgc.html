@@ -8,7 +8,7 @@
     <button id="connectbtn">Connect</button>
     <div id="mesgs"></div>
     <div id="pending_mesgs" style="color: gray;"></div>
-    <input id="sendinput" type="text">
+    <input maxlength="30" id="sendinput" type="text">
     <button id="sendbtn">Send</button>
     <script>
       const CLOSED=3;
@@ -113,15 +113,22 @@
         mesgs.innerHTML="";
         pending_mesgs.innerHTML="";
         local_name = username_field.value;
+        users = {};
         ws = connect(local_key, local_name);
-      })
+      });
+      sendinput.addEventListener("keypress", (e)=>{
+        if (e.key == "Enter"){
+          e.preventDefault();
+          sendbtn.click();
+        }
+      });
       sendbtn.addEventListener("click", ()=>{
         ws.send(sendinput.value);
         let msg = document.createElement("P");
         msg.innerText=sendinput.value;
         pending_mesgs.appendChild(msg);
         sendinput.value="";
-      })
+      });
     </script>
   </body>
 </html>

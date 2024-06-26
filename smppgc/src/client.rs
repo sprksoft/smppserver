@@ -1,12 +1,6 @@
-use std::{
-    hash::Hash,
-    sync::{Arc, Mutex},
-};
+use std::{hash::Hash, sync::Arc};
 
-use futures_util::{
-    stream::{SplitSink, SplitStream},
-    SinkExt, StreamExt,
-};
+use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 
 use log::*;
@@ -25,7 +19,10 @@ impl Message {
     pub const SUBID_SETUP: u8 = 0;
     pub const SUBID_USERJOIN: u8 = 1;
     pub fn is_valid(&self) -> bool {
-        if self.content.as_bytes().len() > 25 {
+        if self.content.as_bytes().len() > 30 {
+            return false;
+        }
+        if self.is_empty() {
             return false;
         }
         true
@@ -56,6 +53,13 @@ impl Message {
         data.extend_from_slice(&client.id.to_be_bytes());
         data.extend_from_slice(&username_bytes);
         tokio_tungstenite::tungstenite::Message::Binary(data)
+    }
+    pub fn new_message(mesg: &Message) -> tokio_tungstenite::tungstenite::Message {
+        let content_bytes = mesg.content.as_bytes();
+        let mut data = Vec::with_capacity(content_bytes.len() + 2);
+        data.extend_from_slice(&mesg.sender.to_be_bytes());
+        data.extend_from_slice(content_bytes);
+        tungstenite::Message::Binary(data)
     }
 }
 
@@ -120,12 +124,25 @@ impl Client {
         self.ws.send(Message::new_client_joined(client)).await?;
         Ok(())
     }
+    pub async fn forward_all_clients(
+        &mut self,
+        clients: impl Iterator<Item = &ClientInfo>,
+    ) -> Result<()> {
+        for client in clients {
+            self.ws.feed(Message::new_client_joined(client)).await?;
+        }
+        self.ws.flush().await?;
+        Ok(())
+    }
     pub async fn forward(&mut self, mesg: &Message) -> Result<()> {
-        let content_bytes = mesg.content.as_bytes();
-        let mut data = Vec::with_capacity(content_bytes.len() + 2);
-        data.extend_from_slice(&mesg.sender.to_be_bytes());
-        data.extend_from_slice(content_bytes);
-        self.ws.send(tungstenite::Message::Binary(data)).await?;
+        self.ws.send(Message::new_message(mesg)).await?;
+        Ok(())
+    }
+    pub async fn forward_all(&mut self, messages: impl Iterator<Item = &Message>) -> Result<()> {
+        for message in messages {
+            self.ws.feed(Message::new_message(message)).await?;
+        }
+        self.ws.flush().await?;
         Ok(())
     }
     pub async fn try_recv(&mut self) -> Result<Message> {
