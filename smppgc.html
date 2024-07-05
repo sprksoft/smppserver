@@ -78,7 +78,7 @@
         if (key !== undefined && key !== ""){
           query+="&"+key;
         }
-        const ws = new WebSocket("ws://localhost:8080/smpp/gc?"+query);
+        const ws = new WebSocket("ws://localhost:8080/smpp/gc/socket?"+query);
 
         ws.onmessage = async (e) =>{
           let data = e.data;

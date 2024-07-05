@@ -11,7 +11,8 @@ use crate::usernamemgr::Key;
 
 #[derive(Clone, Debug)]
 pub struct Message {
-    pub sender: u16,
+    pub sender: Arc<str>,
+    pub sender_id: u16,
     pub content: Arc<str>,
 }
 impl Message {
@@ -35,7 +36,12 @@ impl Message {
         }
         true
     }
-    pub fn new_setup(key: Key, id: u16) -> tokio_tungstenite::tungstenite::Message {
+    pub fn new_setup<'a, 'b>(
+        key: Key,
+        id: u16,
+        clients: impl Iterator<Item = &'a ClientInfo>,
+        history: impl Iterator<Item = &'b Message>,
+    ) -> tokio_tungstenite::tungstenite::Message {
         let key_str = key.to_string();
         let key_str_bytes = key_str.as_bytes();
         let mut data = Vec::with_capacity(key_str_bytes.len() + 3);
@@ -43,6 +49,8 @@ impl Message {
         data.push(Self::SUBID_SETUP);
         data.extend_from_slice(&id.to_be_bytes());
         data.extend_from_slice(key_str_bytes);
+        for client in clients {}
+        for message in history {}
         tokio_tungstenite::tungstenite::Message::Binary(data)
     }
     pub fn new_client_joined(client: &ClientInfo) -> tokio_tungstenite::tungstenite::Message {
@@ -57,7 +65,7 @@ impl Message {
     pub fn new_message(mesg: &Message) -> tokio_tungstenite::tungstenite::Message {
         let content_bytes = mesg.content.as_bytes();
         let mut data = Vec::with_capacity(content_bytes.len() + 2);
-        data.extend_from_slice(&mesg.sender.to_be_bytes());
+        data.extend_from_slice(&mesg.sender_id.to_be_bytes());
         data.extend_from_slice(content_bytes);
         tungstenite::Message::Binary(data)
     }
@@ -86,9 +94,12 @@ impl ClientFactory {
         mut ws: WebSocketStream<TcpStream>,
         key: Key,
         username: String,
+        clients: impl Iterator<Item = &ClientInfo>,
+        history: impl Iterator<Item = &Message>,
     ) -> Result<Client> {
         let id = self.reserve_id();
-        ws.send(Message::new_setup(key, id)).await?;
+        ws.send(Message::new_setup(key, id, clients, history))
+            .await?;
         let info = ClientInfo {
             username: username.into(),
             id,
@@ -152,7 +163,8 @@ impl Client {
         }
         let content = String::from_utf8_lossy(&message.into_data()).to_string();
         Ok(Message {
-            sender: self.info.id(),
+            sender_id: self.info.id(),
+            sender: self.info.username.clone(),
             content: content.into(),
         })
     }
