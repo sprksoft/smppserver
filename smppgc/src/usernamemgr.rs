@@ -39,6 +39,9 @@ impl UsernameManager {
         }
     }
     pub fn lease_name(&mut self, name: &str, key: Key) -> Result<(), NameLeaseError> {
+        if name == "system" {
+            return Err(NameLeaseError::Taken);
+        }
         if !Self::validate_username(name) {
             return Err(NameLeaseError::Invalid);
         }
@@ -63,7 +66,7 @@ impl UsernameManager {
     }
 
     fn validate_username(name: &str) -> bool {
-        if name.len() > 15 || name.len() < 3 {
+        if name.len() > 15 || name.len() < 2 {
             return false;
         }
         for char in name.chars() {
@@ -93,6 +96,9 @@ impl Key {
         }
     }
     pub fn parse_str(string: &str) -> Option<Self> {
+        if string.len() != 33 {
+            return None;
+        }
         let anon = if string.starts_with('l') {
             false
         } else if string.starts_with('a') {

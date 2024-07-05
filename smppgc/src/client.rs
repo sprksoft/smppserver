@@ -49,8 +49,24 @@ impl Message {
         data.push(Self::SUBID_SETUP);
         data.extend_from_slice(&id.to_be_bytes());
         data.extend_from_slice(key_str_bytes);
-        for client in clients {}
-        for message in history {}
+
+        for client in clients {
+            let name_bytes = client.username.as_bytes();
+            data.reserve(name_bytes.len() + 3);
+            data.extend_from_slice(&client.id.to_be_bytes());
+            data.push(name_bytes.len() as u8);
+            data.extend_from_slice(name_bytes);
+        }
+        data.extend_from_slice(&Self::USERID_SPECIAL.to_be_bytes());
+        for message in history {
+            let sender_bytes = message.sender.as_bytes();
+            let content_bytes = message.content.as_bytes();
+            data.reserve(sender_bytes.len() + content_bytes.len() + 2);
+            data.push(sender_bytes.len() as u8);
+            data.extend_from_slice(sender_bytes);
+            data.push(content_bytes.len() as u8);
+            data.extend_from_slice(content_bytes);
+        }
         tokio_tungstenite::tungstenite::Message::Binary(data)
     }
     pub fn new_client_joined(client: &ClientInfo) -> tokio_tungstenite::tungstenite::Message {

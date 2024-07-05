@@ -117,7 +117,7 @@ impl Chat {
         }
         let messages_receiver = self.messages_sender.subscribe();
 
-        let mut client = match self.handle_client_preconnect(query, ws).await {
+        let client = match self.handle_client_preconnect(query, ws).await {
             Some(client) => client,
             None => {
                 return;
@@ -125,24 +125,6 @@ impl Chat {
         };
 
         trace!("User joined {}", client.client_info().id());
-        /* match client.forward_all_clients(self.clients.iter()).await { Ok(_) => {}
-            Err(RecieverError::Invalid) => {
-                error!("Socket error when forwarding already present clients.");
-                return;
-            }
-            Err(RecieverError::Disconected) => {
-                return;
-            }
-        };
-        match client.forward_all(self.messages.iter()).await {
-            Ok(_) => {}
-            Err(RecieverError::Invalid) => {
-                error!("Socket error when forwarding messages.");
-            }
-            Err(RecieverError::Disconected) => {
-                return;
-            }
-        } */
 
         self.clients.insert(client.client_info());
         //Send can only fail if no receivers
@@ -191,7 +173,7 @@ impl Chat {
             Err(NameLeaseError::Invalid) => {
                 let _ = ws.close(Some(CloseFrame{
                 code: CloseCode::Error,
-                reason: Cow::Borrowed("Invalid username. Username must be between 3-10 characters and can only contain ascii characters")
+                reason: Cow::Borrowed("Invalid username. Username must be between 2-15 characters and can only contain letters and numbers")
             })).await;
                 return None;
             }
@@ -243,7 +225,7 @@ async fn handle_client(
                         break;
                     }
                     Err(err) =>{
-                        error!("{}", err);
+                        warn!("Ungraceful disconnect: {}", err);
                         break;
                     }
                 }
@@ -257,7 +239,7 @@ async fn handle_client(
                                 break;
                             }
                             Err(err) => {
-                                error!("{}", err);
+                                warn!("Ungraceful disconnect: {}", err);
                                 break;
                             }
                         };
@@ -280,7 +262,7 @@ async fn handle_client(
                                 break;
                             }
                             Err(err) => {
-                                error!("{}", err);
+                                warn!("Ungraceful disconnect: {}", err);
                                 break;
                             },
                         }
