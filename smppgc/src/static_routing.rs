@@ -4,8 +4,10 @@ use std::{
 };
 
 use lmetrics::metrics;
-use rocket::serde::Deserialize;
+use log::*;
+use rocket::routes;
 use rocket::{fairing::AdHoc, fs::NamedFile, State};
+use rocket::{get, serde::Deserialize};
 
 metrics! {
     pub counter static_req_total("Total amount of requests to static resources", []);

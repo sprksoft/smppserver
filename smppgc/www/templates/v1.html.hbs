@@ -1,0 +1,68 @@
+<!-- vim: set ft=html: -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Global Chat</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="{{res_url}}/static/logo.png">
+
+    <style type="text/css">
+      {{theme_css}}
+    </style>
+    <link rel="stylesheet" href="{{res_url}}/static/v1.css" />
+    <style id="importance_filter"></style>
+
+
+    <script type="text/javascript">
+      //from: https://github.com/doomjs/dataview-getstring
+      DataView.prototype.getString = function(offset, length){
+        var end = typeof length == 'number' ? offset + length : this.byteLength;
+        var text = '';
+        var val = -1;
+
+        while (offset < this.byteLength && offset < end){
+          val = this.getUint8(offset++);
+          text += String.fromCharCode(val);
+        }
+
+        return text;
+      };
+
+      const WEBSOCKET_URL="{{websocket_url}}";
+    </script>
+    <script defer type="text/javascript" src="{{res_url}}/static/v1.js"></script>
+  </head>
+  <body>
+    <div id="typing-place">
+      <div id="mesgs">
+      </div>
+      <div id="pending-mesgs"></div>
+      <div class="bottom-bar">
+        <input maxlength="100" id="send-input" type="text">
+        <button id="leavebtn" class="button">Leave</button>
+      </div>
+    </div>
+
+    <div id="login">
+      <div class="logo">
+        <img src="{{res_url}}/static/logo.png" alt="Smartschool++ logo">
+        <span class="global">Global</span>
+        <span class="chat">Chat</span>
+      </div>
+      <span id="err-mesg"></span>
+
+      <div class="container">
+        <input maxlength="20" id="name-input" type="text" placeholder="username{{#if placeholder}} ({{placeholder}}){{/if}}" data-default_username="{{placeholder}}">
+      </div>
+      <div class="buttons">
+        {{!--{{#if ldeveuorg_key}}
+        <button id="lconnectbtn" class="button" data-key="{{ ldeveuorg_key }}">Connect as @{{ldeveuorg_name}}</button>
+        {{/if}}--}}
+        <button id="connectbtn" class="button">Connect</button>
+      </div>
+    </div>
+
+  </body>
+</html>
+

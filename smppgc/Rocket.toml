@@ -5,10 +5,14 @@ max_users=0
 port = 8081
 
 [debug]
+static_dir="www/static"
+template_dir="www/templates"
 address = "127.0.0.1"
 log_level="normal"
 
 [release]
+static_dir="/var/www/static"
+template_dir="/var/www/templates"
 address = "0.0.0.0"
 log_level = "critical"
 

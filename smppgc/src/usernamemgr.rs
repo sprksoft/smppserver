@@ -2,6 +2,8 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fmt::Display,
+    ops::Deref,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -28,6 +30,20 @@ impl NameSlot {
         self.owner = key;
     }
 }
+
+pub struct NameLease(Arc<str>);
+impl Deref for NameLease {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl Into<Arc<str>> for NameLease {
+    fn into(self) -> Arc<str> {
+        self.0.into()
+    }
+}
+
 pub struct UsernameManager {
     names: HashMap<String, NameSlot>,
     reserve_time: u64,
@@ -39,7 +55,7 @@ impl UsernameManager {
             names: HashMap::new(),
         }
     }
-    pub fn lease_name(&mut self, name: &str, key: Key) -> Result<(), NameLeaseError> {
+    pub fn lease_name<'a>(&mut self, name: &'a str, key: Key) -> Result<NameLease, NameLeaseError> {
         if name == "system" {
             return Err(NameLeaseError::Taken);
         }
@@ -50,17 +66,17 @@ impl UsernameManager {
             let now = SystemTime::now();
             if slot.owner == key {
                 slot.lease(key);
-                return Ok(());
+                return Ok(NameLease(name.into()));
             }
             let last_used_time = SystemTime::UNIX_EPOCH + Duration::from_secs(slot.last_used);
             let age = now.duration_since(last_used_time).unwrap().as_secs();
             if age > self.reserve_time {
                 slot.lease(key);
-                return Ok(());
+                return Ok(NameLease(name.into()));
             }
         } else {
             self.names.insert(name.to_string(), NameSlot::new(key));
-            return Ok(());
+            return Ok(NameLease(name.into()));
         }
 
         Err(NameLeaseError::Taken)

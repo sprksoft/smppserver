@@ -1,13 +1,19 @@
-use std::{hash::Hash, sync::Arc};
+use std::{
+    hash::Hash,
+    sync::{atomic::AtomicU16, Arc},
+};
 
 use futures_util::{SinkExt, StreamExt};
-use tokio::net::TcpStream;
+use rocket_ws::stream::DuplexStream;
 
 use log::*;
 use thiserror::Error;
-use tokio_tungstenite::{tungstenite, WebSocketStream};
+use tokio_tungstenite::tungstenite;
 
-use crate::usernamemgr::Key;
+use crate::{
+    chat2::Chat,
+    usernamemgr::{Key, NameLease},
+};
 
 #[derive(Clone, Debug)]
 pub struct Message {
@@ -36,11 +42,18 @@ impl Message {
         }
         true
     }
+    pub fn invalid() -> Self {
+        Self {
+            sender: "".into(),
+            sender_id: 0,
+            content: "".into(),
+        }
+    }
     pub fn new_setup<'a, 'b>(
         key: Key,
         id: u16,
-        clients: impl Iterator<Item = &'a ClientInfo>,
-        history: impl Iterator<Item = &'b Message>,
+        clients: Vec<ClientInfo>,
+        history: Vec<Message>,
     ) -> tokio_tungstenite::tungstenite::Message {
         let key_str = key.to_string();
         let key_str_bytes = key_str.as_bytes();
@@ -88,63 +101,75 @@ impl Message {
 }
 
 pub struct ClientFactory {
-    id_counter: u16,
-    //id_slots: Box<[u8; u16::MAX as usize / 8]>,
+    id_counter: AtomicU16,
 }
 impl ClientFactory {
     pub fn new() -> Self {
         Self {
-            id_counter: 0,
-            //id_slots: Box::new([0; u16::MAX as usize / 8]),
+            id_counter: 1.into(),
         }
     }
-    pub fn reserve_id(&mut self) -> u16 {
-        self.id_counter = self.id_counter.overflowing_add(1).0;
-        if self.id_counter == 0 {
-            self.id_counter += 1;
+    pub fn reserve_id(&self) -> u16 {
+        let value = self
+            .id_counter
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if value == 0 {
+            self.id_counter
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        } else {
+            value
         }
-        self.id_counter
     }
     pub async fn new_client(
-        &mut self,
-        mut ws: WebSocketStream<TcpStream>,
+        &self,
+        mut ws: DuplexStream,
         key: Key,
-        username: String,
-        clients: impl Iterator<Item = &ClientInfo>,
-        history: impl Iterator<Item = &Message>,
+        username: NameLease,
+        chat_state: &Chat,
     ) -> Result<Client> {
         let id = self.reserve_id();
-        ws.send(Message::new_setup(key, id, clients, history))
-            .await?;
+        ws.send(Message::new_setup(
+            key,
+            id,
+            chat_state.clients().await,
+            chat_state.history().await,
+        ))
+        .await?;
         let info = ClientInfo {
             username: username.into(),
             id,
         };
-        Ok(Client { ws, info })
+        let left_sender = chat_state.left_sender();
+        Ok(Client {
+            ws,
+            info,
+            left_sender,
+        })
     }
 }
 
 #[derive(Debug, Error)]
-pub enum RecieverError {
+pub enum PacketError {
     #[error("Invalid packet or protocol error")]
     Invalid,
     #[error("Client Disconnected")]
     Disconected,
 }
-impl From<tungstenite::Error> for RecieverError {
+impl From<tungstenite::Error> for PacketError {
     fn from(err: tungstenite::Error) -> Self {
         match err {
             tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed => {
-                RecieverError::Disconected
+                PacketError::Disconected
             }
-            _ => RecieverError::Invalid,
+            _ => PacketError::Invalid,
         }
     }
 }
-type Result<T> = std::result::Result<T, RecieverError>;
+type Result<T> = std::result::Result<T, tungstenite::Error>;
 pub struct Client {
-    ws: WebSocketStream<TcpStream>,
+    ws: DuplexStream,
     info: ClientInfo,
+    left_sender: rocket::tokio::sync::broadcast::Sender<ClientInfo>,
 }
 impl Client {
     pub async fn forward_client(&mut self, client: &ClientInfo) -> Result<()> {
@@ -173,9 +198,12 @@ impl Client {
         Ok(())
     }
     pub async fn try_recv(&mut self) -> Result<Message> {
-        let message = self.ws.next().await.ok_or(RecieverError::Invalid)??;
+        let Some(message) = self.ws.next().await else {
+            return Ok(Message::invalid());
+        };
+        let message = message?;
         if !message.is_text() {
-            return Err(RecieverError::Invalid);
+            return Ok(Message::invalid());
         }
         let content = String::from_utf8_lossy(&message.into_data()).to_string();
         Ok(Message {
@@ -187,6 +215,19 @@ impl Client {
 
     pub fn client_info(&self) -> ClientInfo {
         self.info.clone()
+    }
+}
+impl Drop for Client {
+    fn drop(&mut self) {
+        match self.left_sender.send(self.client_info()) {
+            Ok(_) => {}
+            Err(err) => {
+                error!(
+                    "Failed to send leave event (This will cause ghosts to appear): {}",
+                    err
+                )
+            }
+        };
     }
 }
 
