@@ -1,0 +1,14 @@
+[default]
+max_stored_messages=30
+name_reserve_time=1209600 # 2 weeks
+max_users=0
+port = 8081
+
+[debug]
+address = "127.0.0.1"
+log_level="normal"
+
+[release]
+address = "0.0.0.0"
+log_level = "critical"
+

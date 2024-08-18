@@ -11,7 +11,8 @@ use crate::chat::Chat;
 pub async fn handle(stream: TcpStream, chat: &mut Chat) {
     let mut query = None;
     match accept_hdr_async(stream, |request: &Request, response: Response| {
-        if request.uri().path() == "/smpp/gc/v1/socket" {
+        trace!("Requested path: {}", request.uri().path());
+        if request.uri().path() == "" || request.uri().path() == "/" {
             query = request.uri().query().map(|v| v.to_string());
             return Ok(response);
         }

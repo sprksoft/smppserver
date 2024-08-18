@@ -1,5 +1,6 @@
 use std::{borrow::Cow, collections::HashSet};
 
+use rocket::log;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::broadcast::{self, error::TryRecvError};
@@ -16,8 +17,13 @@ use crate::{
     usernamemgr::UsernameManager,
     usernamemgr::{Key, NameLeaseError},
 };
+use lmetrics::metrics;
 
-use log::*;
+metrics! {
+    pub counter joined_total("Total joined users",[]);
+    pub counter left_total("Total left users", []);
+    pub counter messages_total("Total count of messages sent", []);
+}
 
 pub struct Chat {
     messages_sender: broadcast::Sender<Message>,
@@ -60,6 +66,7 @@ impl Chat {
             left_client = self.left_receiver.recv() => {
                 match left_client{
                     Ok(left_client)=>{
+                        left_total::inc();
                         trace!("User {} left", left_client.id());
                         self.clients.remove(&left_client);
                     },
@@ -75,6 +82,7 @@ impl Chat {
                 match mesg{
                     Ok(mesg) => {
                         self.history.push(mesg);
+                        messages_total::inc();
                     },
                     Err(RecvError::Closed) => {
                         return;
@@ -125,6 +133,7 @@ impl Chat {
         };
 
         trace!("User joined {}", client.client_info().id());
+        joined_total::inc();
 
         self.clients.insert(client.client_info());
         //Send can only fail if no receivers
@@ -163,7 +172,16 @@ impl Chat {
                     err!(CloseCode::Error, "Invalid key");
                 }
             };
-            (query[..username_key_split].to_string(), key)
+            (
+                match urlencoding::decode(&query[..username_key_split]) {
+                    Ok(value) => value.into_owned(),
+                    Err(_) => {
+                        error!("Failed to convert username to utf8");
+                        "Mr. Unknown".to_string()
+                    }
+                },
+                key,
+            )
         } else {
             trace!("Generating new key");
             (query, Key::new())

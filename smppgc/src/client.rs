@@ -20,7 +20,7 @@ impl Message {
     pub const SUBID_SETUP: u8 = 0;
     pub const SUBID_USERJOIN: u8 = 1;
     pub fn is_valid(&self) -> bool {
-        if self.content.as_bytes().len() > 30 {
+        if self.content.as_bytes().len() > 100 {
             return false;
         }
         if self.is_empty() {

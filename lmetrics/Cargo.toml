@@ -1,0 +1,17 @@
+[package]
+name = "lmetrics"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+
+[dependencies]
+rocket={version="0.5.1", features=["json"], optional=true}
+rocket_prometheus={version="0.10.1", optional=true}
+prometheus={version="0.13.4"}
+tokio={version="1.38.0", optional=true}
+once_cell={version="1.19.0"}
+
+[features]
+rocket=["dep:rocket", "dep:rocket_prometheus", "tokio"]
+tokio=["dep:tokio"]

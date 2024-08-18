@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     fmt::Display,
     time::{Duration, SystemTime},
@@ -42,10 +43,10 @@ impl UsernameManager {
         if name == "system" {
             return Err(NameLeaseError::Taken);
         }
-        if !Self::validate_username(name) {
+        let Some(name) = Self::validate_normalize_username(name) else {
             return Err(NameLeaseError::Invalid);
-        }
-        if let Some(slot) = self.names.get_mut(name) {
+        };
+        if let Some(slot) = self.names.get_mut(name.as_ref()) {
             let now = SystemTime::now();
             if slot.owner == key {
                 slot.lease(key);
@@ -65,17 +66,26 @@ impl UsernameManager {
         Err(NameLeaseError::Taken)
     }
 
-    fn validate_username(name: &str) -> bool {
-        if name.len() > 15 || name.len() < 2 {
-            return false;
-        }
-        for char in name.chars() {
-            if !char.is_ascii() || char.is_control() {
-                return false;
-            }
+    fn validate_normalize_username<'a>(name: &'a str) -> Option<Cow<'a, str>> {
+        if name.len() > 20 || name.len() < 2 {
+            return None;
         }
 
-        true
+        let mut new_name = String::with_capacity(name.len());
+        for char in name.chars() {
+            if !char.is_ascii() || char.is_control() {
+                return None;
+            }
+
+            if char == 'I' {
+                new_name.push('l');
+            } else {
+                for char in char.to_lowercase() {
+                    new_name.push(char);
+                }
+            }
+        }
+        Some(Cow::Owned(new_name))
     }
 }
 pub enum NameLeaseError {

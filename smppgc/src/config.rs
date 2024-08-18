@@ -4,6 +4,7 @@ use thiserror::Error;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
+    pub metrics_addr: String,
     pub listen_addr: String,
     pub max_stored_messages: usize,
     pub name_reserve_time: u64,
@@ -20,7 +21,7 @@ pub enum ConfigError {
 
 impl Config {
     pub fn load() -> Result<Self, ConfigError> {
-        let path = "smppgc.toml";
+        let path = std::env::var("SMPPGC_CONFIG").unwrap_or("/etc/smppgc.toml".to_string());
         let conf_str = fs::read_to_string(path)?;
         Ok(toml::from_str(&conf_str)?)
     }
