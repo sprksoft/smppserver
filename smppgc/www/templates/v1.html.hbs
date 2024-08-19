@@ -47,21 +47,23 @@
     </div>
 
     <div id="login">
-      <div class="logo">
-        <img src="{{res_url}}/static/logo.png" alt="Smartschool++ logo">
-        <span class="global">Global</span>
-        <span class="chat">Chat</span>
-      </div>
-      <span id="err-mesg"></span>
+      <div class="login-popup">
+        <div class="logo">
+          <img src="{{res_url}}/static/logo.png" alt="Smartschool++ logo">
+          <span class="global">Global</span>
+          <span class="chat">Chat</span>
+        </div>
+        <span id="err-mesg"></span>
 
-      <div class="container">
-        <input maxlength="20" id="name-input" type="text" placeholder="username{{#if placeholder}} ({{placeholder}}){{/if}}" data-default_username="{{placeholder}}">
-      </div>
-      <div class="buttons">
-        {{!--{{#if ldeveuorg_key}}
-        <button id="lconnectbtn" class="button" data-key="{{ ldeveuorg_key }}">Connect as @{{ldeveuorg_name}}</button>
-        {{/if}}--}}
-        <button id="connectbtn" class="button">Connect</button>
+        <div class="container">
+          <input maxlength="20" id="name-input" type="text" placeholder="username{{#if placeholder}} ({{placeholder}}){{/if}}" data-default_username="{{placeholder}}">
+        </div>
+        <div class="buttons">
+          {{!--{{#if ldeveuorg_key}}
+          <button id="lconnectbtn" class="button" data-key="{{ ldeveuorg_key }}">Connect as @{{ldeveuorg_name}}</button>
+          {{/if}}--}}
+          <button id="connectbtn" class="button">Connect</button>
+        </div>
       </div>
     </div>
 
