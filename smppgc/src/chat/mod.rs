@@ -9,16 +9,15 @@ use tokio::sync::{
     broadcast::{self, error::RecvError},
     Mutex,
 };
-use tokio_tungstenite::tungstenite;
 
-use crate::{
-    client::{Client, ClientFactory, ClientInfo, Message},
-    dropvec::DropVec,
-    usernamemgr::{Key, NameLease, UsernameManager},
-    Config,
-};
+pub mod client;
+pub mod usernamemgr;
+
+use crate::{dropvec::DropVec, Config};
+use client::{Client, ClientFactory, ClientInfo, Message};
 use lmetrics::metrics;
 use thiserror::Error;
+use usernamemgr::{Key, NameLease, UsernameManager};
 
 metrics! {
     pub counter joined_total("Total joined users",[]);
@@ -173,7 +172,7 @@ impl Chat {
             self.join_sender.subscribe(),
         )
     }
-    pub fn left_sender(&self) -> broadcast::Sender<ClientInfo> {
+    fn left_sender(&self) -> broadcast::Sender<ClientInfo> {
         self.left_sender.clone()
     }
 }

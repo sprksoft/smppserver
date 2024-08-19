@@ -1,4 +1,3 @@
-use futures_util::StreamExt;
 use rocket::{get, State};
 use std::{borrow::Cow, sync::Arc};
 
@@ -9,9 +8,9 @@ use rocket_ws::{
 };
 use tokio::sync::{broadcast::error::RecvError, Mutex};
 
-use crate::{
-    chat2::Chat,
+use crate::chat::{
     usernamemgr::{Key, NameLeaseError},
+    Chat,
 };
 
 #[get("/socket/v1?<username>&<key>")]
@@ -74,14 +73,22 @@ pub async fn socket_v1(
 
             let (mut messages_receiver, messages_sender, mut join_reciever) =
                 chat.subscribe_events();
+            let mut blockme = false;
             loop {
                 tokio::select! {
                     mesg = client.try_recv() => {
                         if let Some(mesg) = mesg?{
                             if mesg.is_valid(){
-                                trace!("got message from {}: {}", mesg.sender, mesg.content);
-                                let _ = messages_sender.send(mesg);
+                                if mesg.content == "/blockme".into(){
+                                    blockme=true;
+                                }
+                                if !blockme{
+                                    trace!("got message from {}: {}", mesg.sender, mesg.content);
+                                    let _ = messages_sender.send(mesg);
+                                }
                             }
+                        }else{
+                            return Ok(());
                         }
 
                     }

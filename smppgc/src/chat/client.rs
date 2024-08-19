@@ -11,9 +11,9 @@ use rocket_ws::result::Result;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
-use crate::{
-    chat2::Chat,
+use super::{
     usernamemgr::{Key, NameLease},
+    Chat,
 };
 
 #[derive(Clone, Debug)]

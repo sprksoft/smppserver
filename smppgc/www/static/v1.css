@@ -106,9 +106,10 @@ input {
   margin: 10px;
   display:flex;
   flex-direction: column;
+  overflow:scroll;
 }
 #pending-mesgs{
-  color: var(--color_base03);
+  color: var(--color_text);
   margin: 10px;
 }
 #pending-mesgs div:after{
