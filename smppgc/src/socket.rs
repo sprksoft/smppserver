@@ -11,7 +11,6 @@ use tokio::sync::{broadcast::error::RecvError, Mutex};
 
 use crate::{
     chat2::Chat,
-    client::PacketError,
     usernamemgr::{Key, NameLeaseError},
 };
 
@@ -40,23 +39,26 @@ pub async fn socket_v1(
     ws.channel(move |mut stream| {
         Box::pin(async move {
             let Some(key) = key else {
-                let _ = stream.close(Some(CloseFrame {
-                    code: CloseCode::Error,
-                    reason: Cow::Borrowed("Invalid key"),
-                }));
+                stream
+                    .close(Some(CloseFrame {
+                        code: CloseCode::Error,
+                        reason: Cow::Borrowed("Invalid key"),
+                    }))
+                    .await?;
                 return Ok(());
             };
             let name_lease = match name_lease {
                 Ok(name_lease) => name_lease,
                 Err(e) => {
-                    let _ = stream.close(Some(CloseFrame {
-                        code: CloseCode::Error,
-                        reason: Cow::Borrowed(match e {
-                            NameLeaseError::Taken => "username taken",
-                            NameLeaseError::Invalid => "username is invalid",
-                        }),
-                    }));
-                    info!("invalid or taken name");
+                    stream
+                        .close(Some(CloseFrame {
+                            code: CloseCode::Error,
+                            reason: Cow::Borrowed(match e {
+                                NameLeaseError::Taken => "username taken",
+                                NameLeaseError::Invalid => "username is invalid",
+                            }),
+                        }))
+                        .await?;
                     return Ok(());
                 }
             };
@@ -70,14 +72,16 @@ pub async fn socket_v1(
                 }
             };
 
-            let (mut messages_receiver, messages_sender, mut join_reciever) = chat.subscribe();
+            let (mut messages_receiver, messages_sender, mut join_reciever) =
+                chat.subscribe_events();
             loop {
                 tokio::select! {
                     mesg = client.try_recv() => {
-                        let mesg = mesg?;
-                        if mesg.is_valid(){
-                            trace!("got message from {}: {}", mesg.sender, mesg.content);
-                            let _ = messages_sender.send(mesg);
+                        if let Some(mesg) = mesg?{
+                            if mesg.is_valid(){
+                                trace!("got message from {}: {}", mesg.sender, mesg.content);
+                                let _ = messages_sender.send(mesg);
+                            }
                         }
 
                     }

@@ -31,7 +31,7 @@ pub enum NewClientError {
     #[error("Max concurrent user count reached")]
     MaxConcurrentUserCount,
     #[error("Setup packet fail: {0}")]
-    SetupPacketError(tungstenite::Error),
+    SetupPacketError(#[from] rocket_ws::result::Error),
 }
 
 pub struct Chat {
@@ -127,12 +127,13 @@ impl Chat {
         if self.config.max_users != 0
             && self.config.max_users <= self.clients.lock().await.len() as u16
         {
-            let _ = ws.close(Some(CloseFrame {
+            ws.close(Some(CloseFrame {
                 code: CloseCode::Again,
                 reason: Cow::Borrowed(
                     "Max concurrent user count exceeded. Don't try again please.",
                 ),
-            }));
+            }))
+            .await?;
             return Err(NewClientError::MaxConcurrentUserCount);
         }
         let client = self
@@ -159,7 +160,7 @@ impl Chat {
         self.clients.lock().await.iter().cloned().collect()
     }
 
-    pub fn subscribe(
+    pub fn subscribe_events(
         &self,
     ) -> (
         broadcast::Receiver<Message>,

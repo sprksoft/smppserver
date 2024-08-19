@@ -7,6 +7,7 @@ use futures_util::{SinkExt, StreamExt};
 use rocket_ws::stream::DuplexStream;
 
 use log::*;
+use rocket_ws::result::Result;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
@@ -41,13 +42,6 @@ impl Message {
             }
         }
         true
-    }
-    pub fn invalid() -> Self {
-        Self {
-            sender: "".into(),
-            sender_id: 0,
-            content: "".into(),
-        }
     }
     pub fn new_setup<'a, 'b>(
         key: Key,
@@ -165,7 +159,6 @@ impl From<tungstenite::Error> for PacketError {
         }
     }
 }
-type Result<T> = std::result::Result<T, tungstenite::Error>;
 pub struct Client {
     ws: DuplexStream,
     info: ClientInfo,
@@ -197,20 +190,20 @@ impl Client {
         self.ws.flush().await?;
         Ok(())
     }
-    pub async fn try_recv(&mut self) -> Result<Message> {
+    pub async fn try_recv(&mut self) -> Result<Option<Message>> {
         let Some(message) = self.ws.next().await else {
-            return Ok(Message::invalid());
+            return Ok(None);
         };
         let message = message?;
         if !message.is_text() {
-            return Ok(Message::invalid());
+            return Ok(None);
         }
         let content = String::from_utf8_lossy(&message.into_data()).to_string();
-        Ok(Message {
+        Ok(Some(Message {
             sender_id: self.info.id(),
             sender: self.info.username.clone(),
             content: content.into(),
-        })
+        }))
     }
 
     pub fn client_info(&self) -> ClientInfo {
