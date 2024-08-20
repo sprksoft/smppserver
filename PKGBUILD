@@ -14,20 +14,29 @@ makedepends=(
 cargo
 )
 
+
+NIGHTLY="false"
+
 prepare() {
-  smppgc/gen_js.sh
   cd "$srcdir/smppserver"
+  smppgc/gen_js.sh
+  export RUSTUP_TOOLCHAIN=stable
+  if [[ "$NIGHTLY" == "true" ]] ; then
   export RUSTUP_TOOLCHAIN=nightly
   export RUSTFLAGS="-Z threads=8"
+  fi
   cargo fetch
 }
 
 
 build() {
   cd "$srcdir/smppserver"
+
+  export RUSTUP_TOOLCHAIN=stable
+  if [[ "$NIGHTLY" == "true" ]] ; then
   export RUSTUP_TOOLCHAIN=nightly
-  export CARGO_TARGET_DIR=target
   export RUSTFLAGS="-Z threads=8"
+  fi
   cargo build --frozen --release --workspace
 }
 
