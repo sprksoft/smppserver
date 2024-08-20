@@ -1,10 +1,14 @@
 use std::{
+    borrow::Cow,
     hash::Hash,
     sync::{atomic::AtomicU16, Arc},
 };
 
 use futures_util::{SinkExt, StreamExt};
-use rocket_ws::stream::DuplexStream;
+use rocket_ws::{
+    frame::{CloseCode, CloseFrame},
+    stream::DuplexStream,
+};
 
 use log::*;
 use rocket_ws::result::Result;
@@ -196,6 +200,13 @@ impl Client {
         };
         let message = message?;
         if !message.is_text() {
+            error!("Closing connection because: Received binary messages");
+            self.ws
+                .close(Some(CloseFrame {
+                    code: CloseCode::Unsupported,
+                    reason: Cow::Borrowed("No binary messages."),
+                }))
+                .await?;
             return Ok(None);
         }
         let content = String::from_utf8_lossy(&message.into_data()).to_string();
@@ -208,6 +219,16 @@ impl Client {
 
     pub fn client_info(&self) -> ClientInfo {
         self.info.clone()
+    }
+
+    pub async fn ratelimit_kick(&mut self) -> Result<()> {
+        self.ws
+            .close(Some(CloseFrame {
+                code: rocket_ws::frame::CloseCode::Error,
+                reason: Cow::Borrowed("ratelimit exceeded. Type a bit slower next time"),
+            }))
+            .await?;
+        Ok(())
     }
 }
 impl Drop for Client {

@@ -13,8 +13,11 @@ const login_popup=document.getElementById("login");
 function ui_show_login(show) {
   if (show){
     login_popup.style="";
+    ui_clear_messages();
+    sendinput.disabled=true;
   }else{
     login_popup.style="display:none";
+    sendinput.disabled=false;
     sendinput.focus();
   }
 }
@@ -34,10 +37,11 @@ function ui_get_name() {
 }
 
 // Read the input message and clear it
-function ui_read_input() {
-  let message = sendinput.value;
+function ui_get_input() {
+  return sendinput.value.trim();
+}
+function ui_clear_input() {
   sendinput.value="";
-  return message;
 }
 
 function ui_clear_messages() {
@@ -231,7 +235,11 @@ class SocketMgr{
   }
 
   async send(message){
+    if (this.ws.bufferedAmount > 2){
+      return false;
+    }
     await this.ws.send(message);
+    return true;
   }
 
   async leave(){
@@ -277,7 +285,6 @@ socketmgr.on_join = () => {
 }
 
 socketmgr.on_leave = (reason) => {
-  ui_clear_messages();
   ui_error(reason);
 }
 
@@ -302,14 +309,19 @@ socketmgr.on_keychange = (key) => {
 
 
 function send_message() {
-  let message = ui_read_input();
+  let message = ui_get_input();
+  if (message.length == 0){
+    return;
+  }
   if (message == "/clearkey"){
     localStorage.removeItem("key");
     ui_add_message("key cleared.", "system");
     return;
   }
-  ui_add_pending(message);
-  socketmgr.send(message);
+  if (socketmgr.send(message)){
+    ui_add_pending(message);
+    ui_clear_input();
+  }
 }
 
 connectbtn.addEventListener("click", ()=>{

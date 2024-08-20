@@ -13,12 +13,21 @@ pub mod socket;
 pub mod static_routing;
 mod template;
 
+#[derive(Deserialize, Debug, Clone)]
+#[serde(crate = "rocket::serde")]
+pub struct RateLimitConfig {
+    pub min_message_time_hard: isize,
+    pub min_message_time_soft: isize,
+    pub kick_burst: isize,
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct Config {
     pub max_stored_messages: usize,
     pub name_reserve_time: u64,
     pub max_users: u16,
+    pub rate_limit: RateLimitConfig,
 }
 
 #[launch]

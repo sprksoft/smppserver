@@ -4,6 +4,11 @@ name_reserve_time=1209600 # 2 weeks
 max_users=0
 port = 8081
 
+[default.rate_limit]
+min_message_time_soft=400
+min_message_time_hard=50
+kick_burst=1000
+
 [debug]
 static_dir="www/static"
 template_dir="www/templates"

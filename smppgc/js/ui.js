@@ -11,8 +11,11 @@ const login_popup=document.getElementById("login");
 function ui_show_login(show) {
   if (show){
     login_popup.style="";
+    ui_clear_messages();
+    sendinput.disabled=true;
   }else{
     login_popup.style="display:none";
+    sendinput.disabled=false;
     sendinput.focus();
   }
 }
@@ -32,10 +35,11 @@ function ui_get_name() {
 }
 
 // Read the input message and clear it
-function ui_read_input() {
-  let message = sendinput.value;
+function ui_get_input() {
+  return sendinput.value.trim();
+}
+function ui_clear_input() {
   sendinput.value="";
-  return message;
 }
 
 function ui_clear_messages() {

@@ -35,7 +35,6 @@ socketmgr.on_join = () => {
 }
 
 socketmgr.on_leave = (reason) => {
-  ui_clear_messages();
   ui_error(reason);
 }
 
@@ -60,14 +59,19 @@ socketmgr.on_keychange = (key) => {
 
 
 function send_message() {
-  let message = ui_read_input();
+  let message = ui_get_input();
+  if (message.length == 0){
+    return;
+  }
   if (message == "/clearkey"){
     localStorage.removeItem("key");
     ui_add_message("key cleared.", "system");
     return;
   }
-  ui_add_pending(message);
-  socketmgr.send(message);
+  if (socketmgr.send(message)){
+    ui_add_pending(message);
+    ui_clear_input();
+  }
 }
 
 connectbtn.addEventListener("click", ()=>{

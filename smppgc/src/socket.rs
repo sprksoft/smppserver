@@ -1,5 +1,9 @@
 use rocket::{get, State};
-use std::{borrow::Cow, sync::Arc};
+use std::{
+    borrow::Cow,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use log::*;
 use rocket_ws::{
@@ -74,21 +78,43 @@ pub async fn socket_v1(
             let (mut messages_receiver, messages_sender, mut join_reciever) =
                 chat.subscribe_events();
             let mut blockme = false;
+            
+            let rate_limit = chat.config().rate_limit.clone();
+            let mut burst = 0;
+            let mut last_message_instant = Instant::now();
             loop {
                 tokio::select! {
                     mesg = client.try_recv() => {
-                        if let Some(mesg) = mesg?{
-                            if mesg.is_valid(){
-                                if mesg.content == "/blockme".into(){
-                                    blockme=true;
-                                }
-                                if !blockme{
-                                    trace!("got message from {}: {}", mesg.sender, mesg.content);
-                                    let _ = messages_sender.send(mesg);
-                                }
-                            }
-                        }else{
+                        let Some(mesg) = mesg? else { return Ok(())};
+                        let last_mesg_sec : isize = last_message_instant.elapsed().as_millis().try_into().unwrap_or(isize::MAX);
+                        last_message_instant = Instant::now();
+
+                        if last_mesg_sec < rate_limit.min_message_time_hard{
+                            warn!("HARD RATE LIMIT {}", burst);
+                            client.ratelimit_kick().await?;
                             return Ok(());
+                        }
+                        burst+=rate_limit.min_message_time_hard.saturating_sub(last_mesg_sec);
+                        if burst < 0{
+                            burst=0;
+                        }
+                        if burst > rate_limit.kick_burst{
+                            client.ratelimit_kick().await?;
+                            return Ok(());
+                        }
+                        if last_mesg_sec < rate_limit.min_message_time_soft{
+                            burst+=rate_limit.min_message_time_soft.saturating_sub(last_mesg_sec)*2.clamp(0, isize::MAX);
+                            warn!("SOFT RATE LIMIT {}", burst);
+                        }
+                        warn!("burst: {}", burst);
+                        if mesg.is_valid(){
+                            if mesg.content == "/blockme".into(){
+                                blockme=true;
+                            }
+                            if !blockme{
+                                trace!("got message from {}: {}", mesg.sender, mesg.content);
+                                let _ = messages_sender.send(mesg);
+                            }
                         }
 
                     }
@@ -101,7 +127,7 @@ pub async fn socket_v1(
                                 error!("{} Messages lost", count);
                             },
                             Err(RecvError::Closed)=>{
-                                break;
+                                return Ok(());
                             }
                         }
                     }
@@ -114,14 +140,12 @@ pub async fn socket_v1(
                             Err(RecvError::Lagged(count)) => {
                                 error!("{} Join messages lost", count);
                             }, Err(RecvError::Closed)=>{
-                                break;
+                                return Ok(());
                             }
                         }
                     }
                 }
             }
-
-            Ok(())
         })
     })
 }

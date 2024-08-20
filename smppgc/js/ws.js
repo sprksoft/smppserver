@@ -116,7 +116,11 @@ class SocketMgr{
   }
 
   async send(message){
+    if (this.ws.bufferedAmount > 2){
+      return false;
+    }
     await this.ws.send(message);
+    return true;
   }
 
   async leave(){
