@@ -16,8 +16,8 @@ address = "127.0.0.1"
 log_level="normal"
 
 [release]
-static_dir="/var/www/static"
-template_dir="/var/www/templates"
-address = "0.0.0.0"
+static_dir="/var/smppgc/www/static"
+template_dir="/var/smppgc/www/templates"
+address = "127.0.0.1"
 log_level = "critical"
 

@@ -50,9 +50,10 @@ package() {
   cd "$srcdir/smppserver"
   install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/$pkgname"
   install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/" "$pkgname/$pkgname.service"
-  install_config smppgc.toml 
+  install_config Rocket.toml 
 
   mkdir -p "$pkgdir/var"
+  mkdir -p "$pkgdir/var/smppgc"
   cd "$srcdir/smppserver/smppgc"
   cp -rf www "$pkgdir/var/smppgc/www"
   chown smppgc:smppgc "$pkgdir/var/smppgc/www"
