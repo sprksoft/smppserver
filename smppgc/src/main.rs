@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chat::Chat;
 use lmetrics::LMetrics;
+use rocket::get;
 use rocket::routes;
 use rocket::serde::Deserialize;
 use rocket::{fairing::AdHoc, launch};
@@ -30,6 +31,15 @@ pub struct Config {
     pub rate_limit: RateLimitConfig,
 }
 
+#[get("/version")]
+fn server_version() -> &'static str {
+    if cfg!(debug_assertions) {
+        concat!(env!("CARGO_PKG_NAME"), "-debug-", env!("CARGO_PKG_VERSION"))
+    } else {
+        concat!(env!("CARGO_PKG_NAME"), "-", env!("CARGO_PKG_VERSION"))
+    }
+}
+
 #[launch]
 fn rocket() -> _ {
     let mut metrics = LMetrics::new(&[
@@ -40,6 +50,7 @@ fn rocket() -> _ {
     ]);
     metrics.on_before_handle(|| {});
     rocket::build()
+        .mount("/", routes![server_version])
         .mount("/metrics", metrics)
         .attach(static_routing::stage())
         .attach(template::stage())

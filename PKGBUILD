@@ -18,6 +18,7 @@ prepare() {
   smppgc/gen_js.sh
   cd "$srcdir/smppserver"
   export RUSTUP_TOOLCHAIN=nightly
+  export RUSTFLAGS="-Z threads=8"
   cargo fetch
 }
 
@@ -26,6 +27,7 @@ build() {
   cd "$srcdir/smppserver"
   export RUSTUP_TOOLCHAIN=nightly
   export CARGO_TARGET_DIR=target
+  export RUSTFLAGS="-Z threads=8"
   cargo build --frozen --release --workspace
 }
 

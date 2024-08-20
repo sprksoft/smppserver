@@ -5,7 +5,7 @@ Description=smppgc server
 ExecStart=/bin/smppgc
 User=smppgc
 Group=smppgc
-Environment=ROCKET_CONFIG=/etc/site.toml ROCKET_ENV=production
+Environment=ROCKET_CONFIG=/etc/smppgc.toml ROCKET_ENV=production
 Restart=always
 RestartSec=5
 KillSignal=SIGINT
