@@ -10,7 +10,7 @@ const err_mesg = document.getElementById("err-mesg");
 
 const login_popup=document.getElementById("login");
 
-const STICKERS=["egg"]; // avail stickers (used to prevent unneeded 404s to the server)
+const STICKERS=["404"]; // avail stickers (used to prevent unneeded 404s to the server)
 
 function ui_show_login(show) {
   if (show){
