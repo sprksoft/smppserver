@@ -10,6 +10,8 @@ const err_mesg = document.getElementById("err-mesg");
 
 const login_popup=document.getElementById("login");
 
+const STICKERS=["egg"]; // avail stickers (used to prevent unneeded 404s to the server)
+
 function ui_show_login(show) {
   if (show){
     login_popup.style="";
@@ -71,22 +73,46 @@ function mkspan(innerText, parent_el){
     span.innerText=innerText;
     parent_el.appendChild(span);
 }
+function mka(link, parent_el) {
+    let a = document.createElement("a");
+    a.href=link;
+    a.innerText=link;
+    parent_el.appendChild(a);
+}
+function mksticker(name, parent_el) {
+    let img = document.createElement("img");
+    img.width=50;
+    img.dataset.sticker=name
+    img.src=RES_URL+"/static/stickies/"+name+".webp";
+    parent_el.appendChild(img);
+}
+
 
 // convert urls into html tags
 function format_urls(message, parent_el) {
-  const find_link_regex = /https?:\/\/[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b[-a-zA-Z0-9()@:%_\+.~#?&//=]*/g;
+  const find_link_regex = /(https?:\/\/[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b[-a-zA-Z0-9()@:%_\+.~#?&//=]*)|(:[a-z_-]{3,10}:)/g;
 
   const matches = message.matchAll(find_link_regex);
   let last_index = 0;
   for (const match of matches){
+    let skip=false;
     mkspan(message.substring(last_index, match.index), parent_el);
-    
-    let a = document.createElement("a");
-    a.href=match[0];
-    a.innerText=match[0];
-    parent_el.appendChild(a);
 
-    last_index = match.index+match[0].length;
+    if (match[1] !== undefined){
+      mka(match[1], parent_el)
+    }
+    if (match[2] !== undefined){
+      let name = match[2].substring(1, match[2].length-1);
+      if (STICKERS.includes(name)){
+        mksticker(name, parent_el);
+      }else{
+        skip=true;
+      }
+    }
+    if (!skip){
+      last_index = match.index+match[0].length;
+    }
+
   }
   mkspan(message.substring(last_index), parent_el);
 }
