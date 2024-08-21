@@ -69,7 +69,7 @@ class SocketMgr{
         let username = dv.getString(start_index+2)
         console.log("user join: "+username+" ("+id+")");
         this.users[id] = username;
-        id_check();
+        this.#id_check();
         break;
       default:
         console.error("Invalid subid ("+sub_id+") packet recieved");

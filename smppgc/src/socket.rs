@@ -74,12 +74,12 @@ pub async fn socket_v1(
                     return Ok(());
                 }
             };
-
             let (mut messages_receiver, messages_sender, mut join_reciever) =
                 chat.subscribe_events();
-            let mut blockme = false;
-            
             let rate_limit = chat.config().rate_limit.clone();
+            drop(chat);
+
+            let mut blockme = false;
             let mut burst = 0;
             let mut last_message_instant = Instant::now();
             loop {
@@ -90,7 +90,6 @@ pub async fn socket_v1(
                         last_message_instant = Instant::now();
 
                         if last_mesg_sec < rate_limit.min_message_time_hard{
-                            warn!("HARD RATE LIMIT {}", burst);
                             client.ratelimit_kick().await?;
                             return Ok(());
                         }
@@ -104,9 +103,7 @@ pub async fn socket_v1(
                         }
                         if last_mesg_sec < rate_limit.min_message_time_soft{
                             burst+=rate_limit.min_message_time_soft.saturating_sub(last_mesg_sec)*2.clamp(0, isize::MAX);
-                            warn!("SOFT RATE LIMIT {}", burst);
                         }
-                        warn!("burst: {}", burst);
                         if mesg.is_valid(){
                             if mesg.content == "/blockme".into(){
                                 blockme=true;

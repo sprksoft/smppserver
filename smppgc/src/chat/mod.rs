@@ -140,6 +140,7 @@ impl Chat {
             .new_client(ws, key, leased_name, &self)
             .await
             .map_err(|e| NewClientError::SetupPacketError(e))?;
+        let _ = self.join_sender.send(client.client_info()); // throws error when no receivers
         self.clients.lock().await.insert(client.client_info());
 
         Ok(client)

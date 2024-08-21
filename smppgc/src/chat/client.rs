@@ -199,12 +199,15 @@ impl Client {
             return Ok(None);
         };
         let message = message?;
+        if message.is_close() {
+            return Ok(None);
+        }
         if !message.is_text() {
-            error!("Closing connection because: Received binary messages");
+            error!("Closing connection because: Received non text message");
             self.ws
                 .close(Some(CloseFrame {
                     code: CloseCode::Unsupported,
-                    reason: Cow::Borrowed("No binary messages."),
+                    reason: Cow::Borrowed("No non text messages."),
                 }))
                 .await?;
             return Ok(None);
