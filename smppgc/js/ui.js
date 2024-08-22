@@ -13,8 +13,8 @@ const STICKERS=["404", "arch", "tux", "smpp"]; // avail stickers (used to preven
 function ui_show_login(show) {
   if (show){
     login_popup.style="";
-    ui_clear_messages();
     sendinput.disabled=true;
+    ui_clear_messages();
   }else{
     login_popup.style="display:none";
     sendinput.disabled=false;
@@ -24,12 +24,16 @@ function ui_show_login(show) {
 
 
 function ui_error(error) {
-  ui_show_login(true);
+  if (error != ""){
+    ui_show_login(true);
+  }
   err_info_mesg.className="err";
   err_info_mesg.innerText=error;
 }
 function ui_info(info){
-  ui_show_login(true);
+  if (info != ""){
+    ui_show_login(true);
+  }
   err_info_mesg.className="info";
   err_info_mesg.innerText=info;
 }
