@@ -52,9 +52,6 @@ package() {
   install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/" "$pkgname/$pkgname.service"
   install_config Rocket.toml 
 
-  mkdir -p "$pkgdir/var"
-  mkdir -p "$pkgdir/var/smppgc"
-  cd "$srcdir/smppserver/smppgc"
-  cp -rf www "$pkgdir/var/smppgc/www"
-  chown smppgc:smppgc "$pkgdir/var/smppgc/www"
+  install -D -osmppgc -gsmppgc "" "$pkgdir/var/smppgc"
+  cp -rf "$srcdir/smppserver/smppgc/www" "$pkgdir/var/smppgc"
 }
