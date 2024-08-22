@@ -96,17 +96,28 @@ input {
   filter: brightness(100%);
 }
 
-#err-mesg{
-  margin-top: 1rem;
-  color: var(--color_error);
-  font-weight: bold;
-  text-align: center;
-}
-
 .button:hover {
   filter: brightness(120%);
 }
 
+
+#err-info-mesg{
+  margin-top: 1rem;
+  font-weight: bold;
+  text-align: center;
+}
+
+.err{
+  color: var(--color_error);
+}
+.info{
+  color: var(--color_accent);
+}
+.info:not(:empty)::after{
+  content: " /";
+  animation: mesg-loading 0.4s ease infinite;
+  color: var(--color_accent);
+}
 
 #typing-place{
   position:absolute;
@@ -116,6 +127,9 @@ input {
   right: 0px;
   top: 0px;
   bottom: 0px;
+  margin: 0px;
+  padding: 0px;
+  overflow:hidden;
 }
 #mesgs{
   flex-grow: 1000;
@@ -130,7 +144,7 @@ input {
 }
 #pending-mesgs div:after{
   content: " /";
-  animation: mesg-loading 0.3s ease infinite;
+  animation: mesg-loading 0.4s ease infinite;
   color: var(--color_accent);
 }
 @keyframes mesg-loading{

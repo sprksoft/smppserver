@@ -31,6 +31,7 @@ function update_importance_filter() {
 let socketmgr = new SocketMgr();
 
 socketmgr.on_join = () => {
+  ui_info("");
   ui_show_login(false);
 }
 
@@ -76,6 +77,7 @@ function send_message() {
 
 connectbtn.addEventListener("click", ()=>{
   let local_name = ui_get_name();
+  ui_info("connecting...");
   socketmgr.join(localStorage.getItem("key"), local_name);
 });
 sendinput.addEventListener("keypress", (e)=>{

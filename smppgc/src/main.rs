@@ -9,6 +9,8 @@ use rocket::{fairing::AdHoc, launch};
 use tokio::sync::Mutex;
 
 pub mod chat;
+#[cfg(debug_assertions)]
+mod debug;
 pub mod dropvec;
 pub mod socket;
 pub mod static_routing;
@@ -49,7 +51,7 @@ fn rocket() -> _ {
         &chat::messages_total::METRIC,
     ]);
     metrics.on_before_handle(|| {});
-    rocket::build()
+    let r = rocket::build()
         .mount("/", routes![server_version])
         .mount("/metrics", metrics)
         .attach(static_routing::stage())
@@ -62,5 +64,8 @@ fn rocket() -> _ {
 
             r.mount("/", routes![socket::socket_v1])
                 .manage(Arc::new(Mutex::new(Chat::new(config))))
-        }))
+        }));
+    #[cfg(debug_assertions)]
+    let r = r.attach(debug::stage());
+    r
 }

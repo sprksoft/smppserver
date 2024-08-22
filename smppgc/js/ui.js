@@ -4,11 +4,11 @@ const mesgs = document.getElementById("mesgs");
 const pending_mesgs = document.getElementById("pending-mesgs");
 const username_field = document.getElementById("name-input");
 const connectbtn = document.getElementById("connectbtn");
-const err_mesg = document.getElementById("err-mesg");
+const err_info_mesg = document.getElementById("err-info-mesg");
 
 const login_popup=document.getElementById("login");
 
-const STICKERS=["404"]; // avail stickers (used to prevent unneeded 404s to the server)
+const STICKERS=["404", "arch", "tux", "smpp"]; // avail stickers (used to prevent unneeded 404s to the server)
 
 function ui_show_login(show) {
   if (show){
@@ -25,7 +25,13 @@ function ui_show_login(show) {
 
 function ui_error(error) {
   ui_show_login(true);
-  err_mesg.innerText=error;
+  err_info_mesg.className="err";
+  err_info_mesg.innerText=error;
+}
+function ui_info(info){
+  ui_show_login(true);
+  err_info_mesg.className="info";
+  err_info_mesg.innerText=info;
 }
 
 function ui_get_name() {
@@ -81,14 +87,14 @@ function mksticker(name, parent_el) {
     let img = document.createElement("img");
     img.width=50;
     img.dataset.sticker=name
-    img.src=RES_URL+"/static/stickies/"+name+".webp";
+    img.src=ROOT_URL+"/static/stickies/"+name+".webp";
     parent_el.appendChild(img);
 }
 
 
 // convert urls into html tags
 function format_urls(message, parent_el) {
-  const find_link_regex = /(https?:\/\/[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b[-a-zA-Z0-9()@:%_\+.~#?&//=]*)|(:[a-z_-]{3,10}:)/g;
+  const find_link_regex = /(https?:\/\/[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b[-a-zA-Z0-9()@:%_\+.~#?&//=]*)|(:[a-z0-9_-]{3,10}:)/g;
 
   const matches = message.matchAll(find_link_regex);
   let last_index = 0;

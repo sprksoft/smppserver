@@ -104,18 +104,16 @@ async fn v1(theme: SmppTheme, placeholder: Option<&str>) -> GcPageResponder {
         return GcPageResponder::BadRequest("xss detected");
     }
 
-    let (websocket_url, res_url) = if cfg!(debug_assertions) {
-        ("ws://localhost:8081/socket/v1", "http://localhost:8081")
+    let debug = cfg!(debug_assertions);
+    let root_url = if debug {
+        "http://localhost:8081"
     } else {
-        (
-            "wss://ldev.eu.org/smpp/gc/socket/v1",
-            "https://ldev.eu.org/smpp/gc",
-        )
+        "https://ldev.eu.org/smpp/gc"
     };
     GcPageResponder::Ok {
         inner: Template::render(
             "v1",
-            context! {theme_css:theme.css(), placeholder:placeholder, websocket_url:websocket_url, res_url: res_url },
+            context! {theme_css:theme.css(), placeholder:placeholder, root_url: root_url, debug: debug },
         ),
         csp: CSPFrameAncestors {
             frame_ancestors: "*.smartschool.be".to_string(),

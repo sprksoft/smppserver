@@ -5,12 +5,12 @@
     <title>Global Chat</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="{{res_url}}/static/logo.png">
+    <link rel="icon" href="{{root_url}}/static/logo.png">
 
     <style type="text/css">
       {{theme_css}}
     </style>
-    <link rel="stylesheet" href="{{res_url}}/static/v1.css" />
+    <link rel="stylesheet" href="{{root_url}}/static/v1.css" />
     <style id="importance_filter"></style>
 
 
@@ -28,11 +28,15 @@
 
         return text;
       };
-
-      const WEBSOCKET_URL="{{websocket_url}}";
-      const RES_URL="{{res_url}}";
+    
+      {{#if debug}}
+      const WEBSOCKET_URL="ws://localhost:8081/socket/v1";
+      {{else}}
+      const WEBSOCKET_URL="wss://ldev.eu.org/smpp/gc/socket/v1",
+      {{/if}}
+      const ROOT_URL="{{root_url}}";
     </script>
-    <script defer type="text/javascript" src="{{res_url}}/static/v1.js"></script>
+    <script defer type="text/javascript" src="{{root_url}}/static/v1.js"></script>
   </head>
   <body>
     <div id="typing-place">
@@ -43,6 +47,9 @@
         <div class="bottom-bar">
           <input maxlength="100" id="send-input" type="text">
           <button id="leavebtn" class="button">Leave</button>
+          {{#if debug}}
+          <a class="button" href="/debug/reload_js">reload js</a>
+          {{/if}}
         </div>
       </div>
     </div>
@@ -50,11 +57,11 @@
     <div id="login">
       <div class="login-popup">
         <div class="logo">
-          <img src="{{res_url}}/static/logo.png" alt="Smartschool++ logo">
+          <img src="{{root_url}}/static/logo.png" alt="Smartschool++ logo">
           <span class="global">Global</span>
           <span class="chat">Chat</span>
         </div>
-        <span id="err-mesg"></span>
+        <span id="err-info-mesg"></span>
 
         <div class="container">
           <input maxlength="20" id="name-input" type="text" placeholder="username{{#if placeholder}} ({{placeholder}}){{/if}}" data-default_username="{{placeholder}}">

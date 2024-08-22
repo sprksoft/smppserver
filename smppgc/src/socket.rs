@@ -2,6 +2,7 @@ use rocket::{get, State};
 use std::{
     borrow::Cow,
     sync::Arc,
+    thread,
     time::{Duration, Instant},
 };
 
