@@ -18,7 +18,7 @@ if [[ "$(git status -s)" != "" ]] && [[ "$ALLOW_UNCOMMITED" == "false" ]] ; then
 fi
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-if ! [[ "$BRANCH" != "dev" ]] && [[ "$ALLOW_DEPLOY_ON_MAIN" == "false" ]] ; then
+if [[ "$BRANCH" != "dev" ]] && [[ "$ALLOW_DEPLOY_ON_MAIN" == "false" ]] ; then
   echo "Not on dev branch"
   exit 1
 fi
