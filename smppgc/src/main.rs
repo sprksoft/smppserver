@@ -51,7 +51,11 @@ fn server_version() -> &'static str {
 
 #[get("/")]
 fn index() -> Redirect {
-    Redirect::permanent("/v1")
+    if cfg!(debug_assertions) {
+        Redirect::permanent("/v1")
+    } else {
+        Redirect::permanent("/smpp/gc/v1")
+    }
 }
 
 #[launch]
