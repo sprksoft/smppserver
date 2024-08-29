@@ -84,10 +84,15 @@ function send_message() {
   }
 }
 
-connectbtn.addEventListener("click", ()=>{
+function join() {
   let local_name = ui_get_name();
+  localStorage.setItem("username", local_name);
   ui_info("connecting...");
   socketmgr.join(localStorage.getItem("key"), local_name);
+}
+
+connectbtn.addEventListener("click", ()=>{
+  join();
 });
 sendinput.addEventListener("keypress", (e)=>{
   if (e.key == "Enter"){
@@ -99,4 +104,9 @@ leavebtn.addEventListener("click", ()=>{
   socketmgr.leave();
 });
 
+ui_set_name(localStorage.getItem("username"));
 ui_show_login(true);
+if (SKIP_LOGIN){
+  join();
+}
+

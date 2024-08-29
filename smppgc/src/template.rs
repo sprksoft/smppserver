@@ -99,10 +99,11 @@ enum GcPageResponder {
     BadRequest(&'static str),
 }
 
-#[get("/v1?<placeholder>")]
+#[get("/v1?<skip_login>&<placeholder>")]
 fn v1(
     theme: SmppTheme,
     placeholder: Option<&str>,
+    skip_login: Option<bool>,
     offline_config: &State<OfflineConfig>,
 ) -> GcPageResponder {
     let placeholder = placeholder.unwrap_or("");
@@ -119,7 +120,7 @@ fn v1(
     GcPageResponder::Ok {
         inner: Template::render(
             "v1",
-            context! {theme_css:theme.css(), placeholder:placeholder, root_url: root_url, debug: debug, offline: offline_config.offline },
+            context! {theme_css:theme.css(), placeholder:placeholder, root_url: root_url, debug: debug, offline: offline_config.offline, skip_login:skip_login.unwrap_or(false)},
         ),
         csp: CSPFrameAncestors {
             frame_ancestors: "*.smartschool.be".to_string(),

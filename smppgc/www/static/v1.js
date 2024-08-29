@@ -40,6 +40,10 @@ function ui_info(info){
   err_info_mesg.innerText=info;
 }
 
+function ui_set_name(name) {
+  username_field.value = name;
+}
+
 function ui_get_name() {
   let local_name = username_field.value;
   if (username_field.value == ""){
@@ -138,7 +142,7 @@ async function ui_add_message(message, sender){
   let content_el = document.createElement("span");
   content_el.classList.add("content");
   format_urls(message, content_el);
-  
+
   let user_content_el=document.createElement("div");
   user_content_el.classList.add("user_content");
   user_content_el.appendChild(sender_el);
@@ -376,10 +380,15 @@ function send_message() {
   }
 }
 
-connectbtn.addEventListener("click", ()=>{
+function join() {
   let local_name = ui_get_name();
+  localStorage.setItem("username", local_name);
   ui_info("connecting...");
   socketmgr.join(localStorage.getItem("key"), local_name);
+}
+
+connectbtn.addEventListener("click", ()=>{
+  join();
 });
 sendinput.addEventListener("keypress", (e)=>{
   if (e.key == "Enter"){
@@ -391,4 +400,9 @@ leavebtn.addEventListener("click", ()=>{
   socketmgr.leave();
 });
 
+ui_set_name(localStorage.getItem("username"));
 ui_show_login(true);
+if (SKIP_LOGIN){
+  join();
+}
+

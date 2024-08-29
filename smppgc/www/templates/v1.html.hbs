@@ -31,6 +31,12 @@
         return text;
       };
 
+      {{#if skip_login}}
+      const SKIP_LOGIN=true;
+      {{else}}
+      const SKIP_LOGIN=false;
+      {{/if}}
+
       {{#if debug}}
       function reload_js() {
         location = "/debug/reload_js"
