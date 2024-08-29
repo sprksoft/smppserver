@@ -5,12 +5,12 @@
     <title>Global Chat</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="{{root_url}}/static/logo.png">
+    <link rel="icon" href="http{{root_url}}/static/logo.png">
 
     <style type="text/css">
       {{theme_css}}
     </style>
-    <link rel="stylesheet" href="{{root_url}}/static/v1.css?ckey={{version}}" />
+    <link rel="stylesheet" href="http{{root_url}}/static/v1.css?ckey={{version}}" />
     <style id="importance_filter"></style>
 
 
@@ -41,13 +41,11 @@
       function reload_js() {
         location = "/debug/reload_js"
       }
-      const WEBSOCKET_URL="ws://localhost:8081/socket/v1";
-      {{else}}
-      const WEBSOCKET_URL="wss://ldev.eu.org/smpp/gc/socket/v1";
       {{/if}}
-      const ROOT_URL="{{root_url}}";
+      const WEBSOCKET_URL="ws{{root_url}}/socket/v1";
+      const ROOT_URL="http{{root_url}}";
     </script>
-    <script defer type="text/javascript" src="{{root_url}}/static/v1.js?ckey={{version}}"></script>
+    <script defer type="text/javascript" src="http{{root_url}}/static/v1.js?ckey={{version}}"></script>
     {{/if}}
   </head>
   <body>
@@ -66,7 +64,7 @@
     <div id="login">
       <div class="login-popup">
         <div class="logo">
-          <img src="{{root_url}}/static/logo.png" alt="Smartschool++ logo">
+          <img src="http{{root_url}}/static/logo.png" alt="Smartschool++ logo">
           <div class="logo-text">
             <span>Global</span>
             <span>Chat</span>

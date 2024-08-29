@@ -8,7 +8,7 @@ use rocket::{
 };
 use rocket_dyn_templates::{context, Template};
 
-use crate::OfflineConfig;
+use crate::{ListenAddress, OfflineConfig};
 
 macro_rules! theme {
     ($vis:vis $name:ident{$($param:ident:$default_value:literal),*}) => {
@@ -105,6 +105,7 @@ fn v1(
     placeholder: Option<&str>,
     skip_login: Option<bool>,
     offline_config: &State<OfflineConfig>,
+    listen_address: &State<ListenAddress>,
 ) -> GcPageResponder {
     let placeholder = placeholder.unwrap_or("");
     if placeholder.contains(['<', '>', '=', '"', '"']) {
@@ -113,9 +114,9 @@ fn v1(
 
     let debug = cfg!(debug_assertions);
     let root_url = if debug {
-        "http://localhost:8081"
+        format!("://{}", listen_address.listen_address)
     } else {
-        "https://ldev.eu.org/smpp/gc"
+        "s://ldev.eu.org/smpp/gc".to_string()
     };
     GcPageResponder::Ok {
         inner: Template::render(

@@ -48,7 +48,7 @@ a:hover{
 }
 
 .logo{
-  margin: 2rem;
+  margin: 2rem 0px 2rem 0px;
   display:flex;
   flex-direction: row;
   justify-content:center;
@@ -59,7 +59,8 @@ a:hover{
 }
 
 .logo img{
-  object-fit: cover;
+  object-fit: contain;
+  flex: 0.5 0;
 }
 .logo span{
   font-weight: bold;

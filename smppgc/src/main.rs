@@ -1,3 +1,4 @@
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use chat::Chat;
@@ -38,6 +39,10 @@ pub struct Config {
 #[serde(crate = "rocket::serde")]
 pub struct OfflineConfig {
     pub offline: bool,
+}
+
+pub struct ListenAddress {
+    pub listen_address: SocketAddr,
 }
 
 #[get("/version")]
@@ -84,5 +89,10 @@ fn rocket() -> _ {
         }));
     #[cfg(debug_assertions)]
     let r = r.attach(debug::stage());
-    r
+
+    let ip = r.figment().extract_inner::<IpAddr>("address").unwrap();
+    let port = r.figment().extract_inner::<u16>("port").unwrap();
+    r.manage(ListenAddress {
+        listen_address: SocketAddr::new(ip, port),
+    })
 }
