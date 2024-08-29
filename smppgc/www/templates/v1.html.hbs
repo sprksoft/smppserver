@@ -14,6 +14,8 @@
     <style id="importance_filter"></style>
 
 
+    {{#if offline}}
+    {{else}}
     <script type="text/javascript">
       //from: https://github.com/doomjs/dataview-getstring
       DataView.prototype.getString = function(offset, length){
@@ -28,8 +30,11 @@
 
         return text;
       };
-    
+
       {{#if debug}}
+      function reload_js() {
+        location = "/debug/reload_js"
+      }
       const WEBSOCKET_URL="ws://localhost:8081/socket/v1";
       {{else}}
       const WEBSOCKET_URL="wss://ldev.eu.org/smpp/gc/socket/v1";
@@ -37,6 +42,7 @@
       const ROOT_URL="{{root_url}}";
     </script>
     <script defer type="text/javascript" src="{{root_url}}/static/v1.js"></script>
+    {{/if}}
   </head>
   <body>
     <div id="typing-place">
@@ -46,10 +52,7 @@
         <div id="pending-mesgs"></div>
         <div class="bottom-bar">
           <input maxlength="100" id="send-input" type="text">
-          <button id="leavebtn" class="button">Leave</button>
-          {{#if debug}}
-          <a class="button" href="/debug/reload_js">reload js</a>
-          {{/if}}
+          <button id="leavebtn" class="button">Chat verlaten</button>
         </div>
       </div>
     </div>
@@ -58,20 +61,32 @@
       <div class="login-popup">
         <div class="logo">
           <img src="{{root_url}}/static/logo.png" alt="Smartschool++ logo">
-          <span class="global">Global</span>
-          <span class="chat">Chat</span>
+          <div class="logo-text">
+            <span>Global</span>
+            <span>Chat</span>
+          </div>
         </div>
+          <h3 class="warning">⚠️ Waarschuwing ⚠️</h3>
+          <ul>
+            <li>Iedereen kan een <b class="text-accent">WILLEKEURIGE NAAM</b> kiezen.</li>
+            <li>Deze chat wordt <b class="text-accent">NIET GEMODEREERD</b>.</li>
+            <li>Deel <b class="text-accent">GEEN GEVOELIGE GEGEVENS</b> met anderen!</li>
+          </ul>
         <span id="err-info-mesg"></span>
 
         <div class="container">
-          <input maxlength="20" id="name-input" type="text" placeholder="username{{#if placeholder}} ({{placeholder}}){{/if}}" data-default_username="{{placeholder}}">
+          <input maxlength="20" id="name-input" type="text" placeholder="gebruikersnaam{{#if placeholder}} ({{placeholder}}){{/if}}" data-default_username="{{placeholder}}">
         </div>
+        {{#if offline}}
+        <button disabled class="err button">Global Chat is momenteel offline. Sorry voor het ongemak.</button>
+        {{else}}
         <div class="buttons">
           {{!--{{#if ldeveuorg_key}}
-          <button id="lconnectbtn" class="button" data-key="{{ ldeveuorg_key }}">Connect as @{{ldeveuorg_name}}</button>
+          <button id="lconnectbtn" class="button" data-key="{{ ldeveuorg_key }}">Verbinden als @{{ldeveuorg_name}}</button>
           {{/if}}--}}
-          <button id="connectbtn" class="button">Connect</button>
+          <button id="connectbtn" class="button">Verbinden</button>
         </div>
+        {{/if}}
       </div>
     </div>
 

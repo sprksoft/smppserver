@@ -1,10 +1,5 @@
-use rocket::{get, State};
-use std::{
-    borrow::Cow,
-    sync::Arc,
-    thread,
-    time::{Duration, Instant},
-};
+use rocket::{get, Responder, State};
+use std::{borrow::Cow, sync::Arc, time::Instant};
 
 use log::*;
 use rocket_ws::{
@@ -13,18 +8,33 @@ use rocket_ws::{
 };
 use tokio::sync::{broadcast::error::RecvError, Mutex};
 
-use crate::chat::{
-    usernamemgr::{Key, NameLeaseError},
-    Chat,
+use crate::{
+    chat::{
+        usernamemgr::{Key, NameLeaseError},
+        Chat,
+    },
+    OfflineConfig,
 };
+
+#[derive(Responder)]
+pub enum SocketV1Responder {
+    #[response(status = 503)]
+    Offline(&'static str),
+    #[response(status = 200)]
+    Channel(Channel<'static>),
+}
 
 #[get("/socket/v1?<username>&<key>")]
 pub async fn socket_v1(
     username: &str,
     key: Option<&str>,
     ws: WebSocket,
+    offline_config: &State<OfflineConfig>,
     chat: &State<Arc<Mutex<Chat>>>,
-) -> Channel<'static> {
+) -> SocketV1Responder {
+    if offline_config.offline {
+        return SocketV1Responder::Offline("smppgc offline");
+    }
     let key = if let Some(key) = key {
         Key::parse_str(key)
     } else {
@@ -40,13 +50,13 @@ pub async fn socket_v1(
         None => Err(NameLeaseError::Invalid),
     };
 
-    ws.channel(move |mut stream| {
+    SocketV1Responder::Channel(ws.channel(move |mut stream| {
         Box::pin(async move {
             let Some(key) = key else {
                 stream
                     .close(Some(CloseFrame {
                         code: CloseCode::Error,
-                        reason: Cow::Borrowed("Invalid key"),
+                        reason: Cow::Borrowed("INT: Ongeldige sleutel."),
                     }))
                     .await?;
                 return Ok(());
@@ -58,8 +68,8 @@ pub async fn socket_v1(
                         .close(Some(CloseFrame {
                             code: CloseCode::Error,
                             reason: Cow::Borrowed(match e {
-                                NameLeaseError::Taken => "username taken",
-                                NameLeaseError::Invalid => "username is invalid",
+                                NameLeaseError::Taken => "Gebruikersnaam is bezet.",
+                                NameLeaseError::Invalid => "Gebruikersnaam is ongeldig.",
                             }),
                         }))
                         .await?;
@@ -86,7 +96,7 @@ pub async fn socket_v1(
             loop {
                 tokio::select! {
                     mesg = client.try_recv() => {
-                        let Some(mesg) = mesg? else { return Ok(())};
+                        let Some(mesg) = mesg? else { continue; };
                         let last_mesg_sec : isize = last_message_instant.elapsed().as_millis().try_into().unwrap_or(isize::MAX);
                         last_message_instant = Instant::now();
 
@@ -119,7 +129,7 @@ pub async fn socket_v1(
                     mesg = messages_receiver.recv() => {
                         match mesg{
                             Ok(mesg) => {
-                                client.forward(&mesg).await                                ?;
+                                client.forward(&mesg).await?;
                             }
                             Err(RecvError::Lagged(count)) => {
                                 error!("{} Messages lost", count);
@@ -145,5 +155,5 @@ pub async fn socket_v1(
                 }
             }
         })
-    })
+    }))
 }

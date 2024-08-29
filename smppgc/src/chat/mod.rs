@@ -128,9 +128,7 @@ impl Chat {
         {
             ws.close(Some(CloseFrame {
                 code: CloseCode::Again,
-                reason: Cow::Borrowed(
-                    "Max concurrent user count exceeded. Don't try again please.",
-                ),
+                reason: Cow::Borrowed("Chat zit vol."),
             }))
             .await?;
             return Err(NewClientError::MaxConcurrentUserCount);

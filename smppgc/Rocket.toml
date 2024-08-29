@@ -1,8 +1,9 @@
 [default]
 max_stored_messages=30
 name_reserve_time=1209600 # 2 weeks
-max_users=0
+max_users=1000
 port = 8081
+offline=false
 
 [default.rate_limit]
 min_message_time_soft=400

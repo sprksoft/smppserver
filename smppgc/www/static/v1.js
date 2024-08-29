@@ -199,7 +199,7 @@ class SocketMgr{
           let name_length = dv.getUint8(offset+2);
           let username = dv.getString(offset+3, name_length);
           this.users[id]=username;
-          console.log("(hist_user) "+username+" ("+id+")")
+          //console.log("(hist_user) "+username+" ("+id+")")
 
           offset+=3+name_length;
         }
@@ -216,13 +216,13 @@ class SocketMgr{
         }
 
 
-        console.log("Setup packet "+this.local_id+" "+this.local_key);
+        //console.log("Setup packet "+this.local_id+" "+this.local_key);
         this.on_join();
         break;
       case SUBID_USERJOIN:
         let id = dv.getUint16(start_index, false);
         let username = dv.getString(start_index+2)
-        console.log("user join: "+username+" ("+id+")");
+        //console.log("user join: "+username+" ("+id+")");
         this.users[id] = username;
         this.#id_check();
         break;
@@ -237,7 +237,8 @@ class SocketMgr{
     if (this.ws !== undefined){
       await this.ws.close();
     }
-    let query=`username=${username}`;
+    let encoded_username = encodeURIComponent(username);
+    let query=`username=${encoded_username}`;
     if (key !== undefined && key !== null && key !== ""){
       query+="&key="+key;
     }
@@ -264,9 +265,14 @@ class SocketMgr{
       }
     };
     this.ws.onclose = async (e) => {
-      console.error(e);
       this.users={};
-      this.on_leave(e.reason);
+      let reason = e.reason;
+      if (!e.reason || e.reason.startsWith("INT:")){
+        console.error("Reason empty or internal error");
+        console.error(e);
+        reason="Onverwachte fout.";
+      }
+      this.on_leave(e.code, reason);
     }
   }
 
@@ -279,13 +285,14 @@ class SocketMgr{
   }
 
   async leave(){
-    await this.ws.close();
+    await this.ws.close(1000, "Dag dag ik ga je missen. xxx");
   }
 
 }
 /* == smppgc/js/index.js == */
 
 let importance_filter=["ldev"];
+
 
 function update_importance_filter() {
   let css = "";
@@ -321,7 +328,15 @@ socketmgr.on_join = () => {
   ui_show_login(false);
 }
 
-socketmgr.on_leave = (reason) => {
+socketmgr.on_leave = (code, reason) => {
+  switch (code) {
+    case 1000:
+      ui_show_login(true);
+      return;
+    case 1006:
+      ui_error("Onverwachten fout.");
+      return;
+  }
   ui_error(reason);
 }
 

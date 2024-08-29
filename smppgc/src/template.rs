@@ -4,9 +4,11 @@ use rocket::{
     http::{Header, Status},
     request::{self, FromRequest},
     response::Responder,
-    routes, Request,
+    routes, Request, State,
 };
 use rocket_dyn_templates::{context, Template};
+
+use crate::OfflineConfig;
 
 macro_rules! theme {
     ($vis:vis $name:ident{$($param:ident:$default_value:literal),*}) => {
@@ -98,7 +100,11 @@ enum GcPageResponder {
 }
 
 #[get("/v1?<placeholder>")]
-async fn v1(theme: SmppTheme, placeholder: Option<&str>) -> GcPageResponder {
+fn v1(
+    theme: SmppTheme,
+    placeholder: Option<&str>,
+    offline_config: &State<OfflineConfig>,
+) -> GcPageResponder {
     let placeholder = placeholder.unwrap_or("");
     if placeholder.contains(['<', '>', '=', '"', '"']) {
         return GcPageResponder::BadRequest("xss detected");
@@ -113,7 +119,7 @@ async fn v1(theme: SmppTheme, placeholder: Option<&str>) -> GcPageResponder {
     GcPageResponder::Ok {
         inner: Template::render(
             "v1",
-            context! {theme_css:theme.css(), placeholder:placeholder, root_url: root_url, debug: debug },
+            context! {theme_css:theme.css(), placeholder:placeholder, root_url: root_url, debug: debug, offline: offline_config.offline },
         ),
         csp: CSPFrameAncestors {
             frame_ancestors: "*.smartschool.be".to_string(),

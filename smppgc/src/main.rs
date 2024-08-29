@@ -3,6 +3,7 @@ use std::sync::Arc;
 use chat::Chat;
 use lmetrics::LMetrics;
 use rocket::get;
+use rocket::response::Redirect;
 use rocket::routes;
 use rocket::serde::Deserialize;
 use rocket::{fairing::AdHoc, launch};
@@ -33,6 +34,12 @@ pub struct Config {
     pub rate_limit: RateLimitConfig,
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(crate = "rocket::serde")]
+pub struct OfflineConfig {
+    pub offline: bool,
+}
+
 #[get("/version")]
 fn server_version() -> &'static str {
     if cfg!(debug_assertions) {
@@ -40,6 +47,11 @@ fn server_version() -> &'static str {
     } else {
         concat!(env!("CARGO_PKG_NAME"), "-", env!("CARGO_PKG_VERSION"))
     }
+}
+
+#[get("/")]
+fn index() -> Redirect {
+    Redirect::permanent("/v1")
 }
 
 #[launch]
@@ -52,10 +64,11 @@ fn rocket() -> _ {
     ]);
     metrics.on_before_handle(|| {});
     let r = rocket::build()
-        .mount("/", routes![server_version])
+        .mount("/", routes![index, server_version])
         .mount("/metrics", metrics)
         .attach(static_routing::stage())
         .attach(template::stage())
+        .attach(AdHoc::config::<OfflineConfig>())
         .attach(AdHoc::on_ignite("chat", |r| async {
             let config = r
                 .figment()

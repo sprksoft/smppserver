@@ -89,7 +89,7 @@ impl UsernameManager {
 
         let mut new_name = String::with_capacity(name.len());
         for char in name.chars() {
-            if !char.is_ascii() || char.is_control() {
+            if !char.is_ascii() || char.is_control() || char == '@' {
                 return None;
             }
 

@@ -1,6 +1,7 @@
 
 let importance_filter=["ldev"];
 
+
 function update_importance_filter() {
   let css = "";
   let css_driehoek="";
@@ -35,7 +36,15 @@ socketmgr.on_join = () => {
   ui_show_login(false);
 }
 
-socketmgr.on_leave = (reason) => {
+socketmgr.on_leave = (code, reason) => {
+  switch (code) {
+    case 1000:
+      ui_show_login(true);
+      return;
+    case 1006:
+      ui_error("Onverwachten fout.");
+      return;
+  }
   ui_error(reason);
 }
 

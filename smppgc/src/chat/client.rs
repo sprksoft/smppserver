@@ -196,7 +196,7 @@ impl Client {
     }
     pub async fn try_recv(&mut self) -> Result<Option<Message>> {
         let Some(message) = self.ws.next().await else {
-            return Ok(None);
+            return Err(rocket_ws::result::Error::ConnectionClosed);
         };
         let message = message?;
         if message.is_close() {
@@ -207,7 +207,7 @@ impl Client {
             self.ws
                 .close(Some(CloseFrame {
                     code: CloseCode::Unsupported,
-                    reason: Cow::Borrowed("No non text messages."),
+                    reason: Cow::Borrowed("INT: No non text messages."),
                 }))
                 .await?;
             return Ok(None);
@@ -228,7 +228,7 @@ impl Client {
         self.ws
             .close(Some(CloseFrame {
                 code: rocket_ws::frame::CloseCode::Error,
-                reason: Cow::Borrowed("ratelimit exceeded. Type a bit slower next time"),
+                reason: Cow::Borrowed("Te veel berichten. Typ de volgende keer wat langzamer."),
             }))
             .await?;
         Ok(())
