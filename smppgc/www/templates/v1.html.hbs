@@ -56,7 +56,7 @@
         <div id="pending-mesgs"></div>
         <div class="bottom-bar">
           <input maxlength="100" id="send-input" type="text">
-          <button id="leavebtn" class="button">Chat verlaten</button>
+          <button id="leavebtn" class="button">Disconnect</button>
         </div>
       </div>
     </div>
@@ -70,7 +70,7 @@
             <span>Chat</span>
           </div>
         </div>
-          <h3 class="warning">⚠️ Waarschuwing ⚠️</h3>
+          <h3 class="warning">⚠️ Disclaimer ⚠️</h3>
           <ul>
             <li>Iedereen kan een <b class="text-accent">WILLEKEURIGE NAAM</b> kiezen.</li>
             <li>Deze chat wordt <b class="text-accent">NIET GEMODEREERD</b>.</li>
@@ -79,7 +79,7 @@
         <span id="err-info-mesg"></span>
 
         <div class="container">
-          <input maxlength="20" id="name-input" type="text" placeholder="gebruikersnaam{{#if placeholder}} ({{placeholder}}){{/if}}" data-default_username="{{placeholder}}">
+          <input maxlength="20" id="name-input" type="text" placeholder="{{#if placeholder}} ({{placeholder}}){{/if}}" data-default_username="{{placeholder}}">
         </div>
         {{#if offline}}
         <button disabled class="err button">Global Chat is momenteel offline. Sorry voor het ongemak.</button>
@@ -88,7 +88,7 @@
           {{!--{{#if ldeveuorg_key}}
           <button id="lconnectbtn" class="button" data-key="{{ ldeveuorg_key }}">Verbinden als @{{ldeveuorg_name}}</button>
           {{/if}}--}}
-          <button id="connectbtn" class="button">Verbinden</button>
+          <button id="connectbtn" class="button">Connect</button>
         </div>
         {{/if}}
       </div>

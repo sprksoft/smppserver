@@ -42,7 +42,7 @@ socketmgr.on_leave = (code, reason) => {
       ui_show_login(true);
       return;
     case 1006:
-      ui_error("Onverwachten fout.");
+      ui_error("Chat disconnected. Please reconnect.");
       return;
   }
   ui_error(reason);
