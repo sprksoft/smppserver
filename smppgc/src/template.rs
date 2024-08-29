@@ -120,7 +120,7 @@ fn v1(
     GcPageResponder::Ok {
         inner: Template::render(
             "v1",
-            context! {theme_css:theme.css(), placeholder:placeholder, root_url: root_url, debug: debug, offline: offline_config.offline, skip_login:skip_login.unwrap_or(false)},
+            context! {theme_css:theme.css(), placeholder:placeholder, root_url: root_url, debug: debug, offline: offline_config.offline, skip_login:skip_login.unwrap_or(false), version: env!("CARGO_PKG_VERSION")},
         ),
         csp: CSPFrameAncestors {
             frame_ancestors: "*.smartschool.be".to_string(),
