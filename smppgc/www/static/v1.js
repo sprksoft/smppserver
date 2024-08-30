@@ -340,12 +340,13 @@ socketmgr.on_leave = (code, reason) => {
       ui_show_login(true);
       return;
     case 1006: // Abnormal Closure
-      ui_error("Onverwachten fout.");
       let now = Date.now();
       if (last_retry == 0 || now-last_retry > 10_000){
         last_retry = now;
-        join();
+        socketmgr.join(localStorage.getItem("key"), localStorage.getItem("username")); //TODO: I don't like to read localStorage here. Socketmgr should auto reconnect maybe?
+        return;
       }
+      ui_error("Onverwachten fout.");
       return;
   }
   ui_error(reason);
