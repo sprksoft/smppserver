@@ -116,8 +116,11 @@ pub async fn socket_v1(
                             burst+=rate_limit.min_message_time_soft.saturating_sub(last_mesg_sec)*2.clamp(0, isize::MAX);
                         }
                         if mesg.is_valid(){
-                            if mesg.content == "/blockme".into(){
+                            if mesg.content.as_ref() == "/blockme"{
                                 blockme=true;
+                            }
+                            if mesg.content.as_ref() == "/killme"{
+                                return Ok(());
                             }
                             if !blockme{
                                 trace!("got message from {}: {}", mesg.sender, mesg.content);

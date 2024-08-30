@@ -79,14 +79,14 @@
         <span id="err-info-mesg"></span>
 
         <div class="container">
-          <input maxlength="20" id="name-input" type="text" placeholder="{{#if placeholder}} ({{placeholder}}){{/if}}" data-default_username="{{placeholder}}">
+          <input maxlength="20" id="name-input" type="text" placeholder="({{placeholder}})" data-default_username="{{placeholder}}">
         </div>
         {{#if offline}}
         <button disabled class="err button">Global Chat is momenteel offline. Sorry voor het ongemak.</button>
         {{else}}
         <div class="buttons">
           {{!--{{#if ldeveuorg_key}}
-          <button id="lconnectbtn" class="button" data-key="{{ ldeveuorg_key }}">Verbinden als @{{ldeveuorg_name}}</button>
+          <button id="lconnectbtn" class="button" data-key="{{ ldeveuorg_key }}">Connect as @{{ldeveuorg_name}}</button>
           {{/if}}--}}
           <button id="connectbtn" class="button">Connect</button>
         </div>
