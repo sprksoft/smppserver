@@ -17,7 +17,7 @@ use crate::{dropvec::DropVec, Config};
 use client::{Client, ClientFactory, ClientInfo, Message};
 use lmetrics::metrics;
 use thiserror::Error;
-use usernamemgr::{Key, NameLease, UsernameManager};
+use usernamemgr::{NameLease, UserId, UsernameManager};
 
 metrics! {
     pub counter joined_total("Total joined users",[]);
@@ -67,7 +67,7 @@ impl Chat {
             left_sender,
             clients,
             history,
-            unmgr: UsernameManager::new(config.name_reserve_time),
+            unmgr: UsernameManager::new(config.max_reserved_names),
             client_factory: ClientFactory::new(),
             config,
         }
@@ -120,7 +120,7 @@ impl Chat {
     pub async fn new_client(
         &mut self,
         mut ws: DuplexStream,
-        key: Key,
+        key: UserId,
         leased_name: NameLease,
     ) -> Result<Client, NewClientError> {
         if self.config.max_users != 0

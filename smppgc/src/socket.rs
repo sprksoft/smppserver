@@ -2,6 +2,7 @@ use rocket::{get, Responder, State};
 use std::{borrow::Cow, sync::Arc, time::Instant};
 
 use log::*;
+use rocket_db_pools::Connection;
 use rocket_ws::{
     frame::{CloseCode, CloseFrame},
     Channel, WebSocket,
@@ -10,16 +11,18 @@ use tokio::sync::{broadcast::error::RecvError, Mutex};
 
 use crate::{
     chat::{
-        usernamemgr::{Key, NameLeaseError},
+        usernamemgr::{NameLeaseError, UserId},
         Chat,
     },
-    OfflineConfig,
+    db, OfflineConfig,
 };
 
 #[derive(Responder)]
 pub enum SocketV1Responder {
     #[response(status = 503)]
     Offline(&'static str),
+    #[response(status = 500)]
+    Error(&'static str),
     #[response(status = 200)]
     Channel(Channel<'static>),
 }
@@ -31,21 +34,22 @@ pub async fn socket_v1(
     ws: WebSocket,
     offline_config: &State<OfflineConfig>,
     chat: &State<Arc<Mutex<Chat>>>,
+    mut db: Connection<db::Db>,
 ) -> SocketV1Responder {
     if offline_config.offline {
         return SocketV1Responder::Offline("smppgc offline");
     }
     let key = if let Some(key) = key {
-        Key::parse_str(key)
+        UserId::parse_str(key)
     } else {
-        Some(Key::new())
+        Some(UserId::new())
     };
 
     let chat: Arc<Mutex<Chat>> = chat.inner().clone();
     let name_lease = match key.clone() {
         Some(key) => {
             let mut chat = chat.lock().await;
-            chat.unmgr_mut().lease_name(username, key)
+            chat.unmgr_mut().lease_name(username, key, &mut **db).await
         }
         None => Err(NameLeaseError::Invalid),
     };
@@ -67,10 +71,7 @@ pub async fn socket_v1(
                     stream
                         .close(Some(CloseFrame {
                             code: CloseCode::Error,
-                            reason: Cow::Borrowed(match e {
-                                NameLeaseError::Taken => "Gebruikersnaam is bezet.",
-                                NameLeaseError::Invalid => "Gebruikersnaam is ongeldig.",
-                            }),
+                            reason: Cow::Owned(e.to_string()),
                         }))
                         .await?;
                     return Ok(());

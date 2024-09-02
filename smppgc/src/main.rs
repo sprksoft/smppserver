@@ -11,6 +11,7 @@ use rocket::{fairing::AdHoc, launch};
 use tokio::sync::Mutex;
 
 pub mod chat;
+mod db;
 #[cfg(debug_assertions)]
 mod debug;
 pub mod dropvec;
@@ -30,7 +31,7 @@ pub struct RateLimitConfig {
 #[serde(crate = "rocket::serde")]
 pub struct Config {
     pub max_stored_messages: usize,
-    pub name_reserve_time: u64,
+    pub max_reserved_names: u16,
     pub max_users: u16,
     pub rate_limit: RateLimitConfig,
 }
@@ -75,6 +76,7 @@ fn rocket() -> _ {
     let r = rocket::build()
         .mount("/", routes![index, server_version])
         .mount("/metrics", metrics)
+        .attach(db::stage())
         .attach(static_routing::stage())
         .attach(template::stage())
         .attach(AdHoc::config::<OfflineConfig>())

@@ -1,6 +1,6 @@
 [default]
 max_stored_messages=30
-name_reserve_time=1209600 # 2 weeks
+max_reserved_names=2
 max_users=1000
 port = 8081
 offline=false
@@ -16,9 +16,15 @@ template_dir="www/templates"
 address = "127.0.0.1"
 log_level="normal"
 
+[debug.databases.sqlx]
+url="postgres://ldev@localhost/smppgc_debug"
+
+
 [release]
 static_dir="/var/smppgc/www/static"
 template_dir="/var/smppgc/www/templates"
 address = "127.0.0.1"
 log_level = "critical"
 
+[release.databases.sqlx]
+url="postgres://www@localhost/smppgc_prod"

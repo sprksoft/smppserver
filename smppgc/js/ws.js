@@ -16,16 +16,6 @@ class SocketMgr{
   constructor(){
     this.users={};
   }
-  // Check for duplicate ids
-  #id_check(){
-    Object.keys(this.users).forEach(function(id) {
-      if (this.users[id] !== undefined || id == this.local_id){
-        ui_add_message("knock knock who's there. ... race condition. Please REPORT A BUG ON DISCORD ", "system");
-        return;
-      }
-    });
-  }
-
 
   #on_special_message(sub_id, dv, start_index){
     switch(sub_id){
@@ -60,7 +50,6 @@ class SocketMgr{
           offset+=mesg_length+1;
         }
 
-
         //console.log("Setup packet "+this.local_id+" "+this.local_key);
         this.on_join();
         break;
@@ -69,7 +58,6 @@ class SocketMgr{
         let username = dv.getString(start_index+2)
         //console.log("user join: "+username+" ("+id+")");
         this.users[id] = username;
-        this.#id_check();
         break;
       default:
         console.error("Invalid subid ("+sub_id+") packet recieved");

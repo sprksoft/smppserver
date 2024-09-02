@@ -88,6 +88,7 @@ function mkspan(innerText, parent_el){
 function mka(link, parent_el) {
     let a = document.createElement("a");
     a.href=link;
+    a.target="_blank";
     a.innerText=link;
     parent_el.appendChild(a);
 }

@@ -16,7 +16,8 @@ use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
 use super::{
-    usernamemgr::{Key, NameLease},
+    joined_total,
+    usernamemgr::{NameLease, UserId},
     Chat,
 };
 
@@ -48,7 +49,7 @@ impl Message {
         true
     }
     pub fn new_setup<'a, 'b>(
-        key: Key,
+        key: UserId,
         id: u16,
         clients: Vec<ClientInfo>,
         history: Vec<Message>,
@@ -121,11 +122,12 @@ impl ClientFactory {
     pub async fn new_client(
         &self,
         mut ws: DuplexStream,
-        key: Key,
+        key: UserId,
         username: NameLease,
         chat_state: &Chat,
     ) -> Result<Client> {
         let id = self.reserve_id();
+        joined_total::inc();
         ws.send(Message::new_setup(
             key,
             id,

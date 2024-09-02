@@ -1,21 +1,25 @@
+use rocket_db_pools::sqlx;
+use sqlx::PgConnection;
 use std::{
     borrow::Cow,
-    collections::HashMap,
     fmt::Display,
     ops::Deref,
     rc::Rc,
     sync::Arc,
     time::{Duration, SystemTime},
 };
+use thiserror::Error;
 
 use uuid::Uuid;
+
+use crate::db::{self, Db};
 struct NameSlot {
     name: Rc<str>,
     last_used: u64,
-    owner: Key,
+    owner: UserId,
 }
 impl NameSlot {
-    pub fn new(owner: Key, name: Rc<str>) -> Self {
+    pub fn new(owner: UserId, name: Rc<str>) -> Self {
         Self {
             last_used: Self::epoch(SystemTime::now()),
             owner,
@@ -27,7 +31,7 @@ impl NameSlot {
             .expect("Time went backwards")
             .as_secs()
     }
-    pub fn lease(&mut self, name: Arc<str>, key: Key, reserve_time: u64) -> Option<NameLease> {
+    pub fn lease(&mut self, name: Arc<str>, key: UserId, reserve_time: u64) -> Option<NameLease> {
         if name.as_ref() != self.name.as_ref() {
             return None;
         }
@@ -58,77 +62,106 @@ impl Into<Arc<str>> for NameLease {
 }
 
 pub struct UsernameManager {
-    names_to_slot: HashMap<Rc<str>, usize>,
-    leased_slots: HashMap<Key, Vec<usize>>,
-    slots: Vec<NameSlot>,
-    reserve_time: u64,
+    max_reserved: u16,
 }
 impl UsernameManager {
-    pub fn new(reserve_time: u64) -> Self {
-        Self {
-            reserve_time,
-            names_to_slot: HashMap::new(),
-            leased_slots: HashMap::new(),
-            slots: Vec::new(),
+    pub fn new(max_reserved: u16) -> Self {
+        Self { max_reserved }
+    }
+
+    pub async fn lease_name(
+        &self,
+        name: &str,
+        user_id: UserId,
+        db: &mut PgConnection,
+    ) -> Result<NameLease, NameLeaseError> {
+        let Some(name) = Self::validate_normalize_username(name) else {
+            return Err(NameLeaseError::Invalid);
+        };
+        let name = sqlx::query!(
+            "WITH inserted AS (
+                INSERT INTO name_links (name, owner, created_at) VALUES ($2, $1, extract(epoch from now())) ON CONFLICT (name) DO UPDATE SET created_at = extract(epoch from now()) WHERE name_links.owner = $1
+                RETURNING CASE
+                    WHEN name_links.owner = $1 THEN name_links.name
+                    ELSE NULL
+                END
+            ), removed AS (
+                DELETE FROM name_links WHERE name NOT IN (SELECT name FROM name_links WHERE owner=$1 ORDER BY created_at DESC LIMIT $3)
+                ) SELECT * FROM inserted",
+            user_id.uuid(),
+            &name,
+            self.max_reserved as i64
+        )
+        .fetch_optional(db)
+        .await?.map(|name|name.case).flatten();
+
+        match name {
+            Some(name) => Ok(NameLease(name.into())),
+            None => Err(NameLeaseError::Taken),
         }
     }
 
-    pub fn lease_name<'a>(
-        &mut self,
-        name: Arc<str>,
-        key: Key,
-    ) -> Result<NameLease, NameLeaseError> {
-        if name.as_ref() == "system" {
-            return Err(NameLeaseError::Taken);
+    fn is_valid_name_char(char: char) -> bool {
+        if char.is_ascii() && !char.is_control() && char != '@' {
+            true
+        } else {
+            false
         }
-        let Some(name) = Self::validate_normalize_username(&name) else {
-            return Err(NameLeaseError::Invalid);
-        };
-        let name: Arc<str> = name.into();
-
-        if let Some(slot_index) = self.names_to_slot.get(name.as_ref()) {
-            let slot = self.slots.get_mut(*slot_index).unwrap();
-            if let Some(lease) = slot.lease(name, key, self.reserve_time) {
-                return Ok(lease);
-            }
-        }
-        Err(NameLeaseError::Taken)
     }
 
     fn validate_normalize_username<'a>(name: &'a str) -> Option<Cow<'a, str>> {
+        let name: &str = name.trim();
         if name.len() > 20 || name.len() < 2 {
             return None;
         }
 
-        let mut new_name = String::with_capacity(name.len());
+        let mut new_name = None;
         for char in name.chars() {
-            if !char.is_ascii() || char.is_control() || char == '@' {
+            if !Self::is_valid_name_char(char) {
                 return None;
             }
-
-            if char == 'I' {
-                new_name.push('l');
-            } else {
-                for char in char.to_lowercase() {
-                    new_name.push(char);
+            if char.is_uppercase() {
+                let mut new_name_string = String::with_capacity(name.len());
+                for char in name.chars() {
+                    if !Self::is_valid_name_char(char) {
+                        return None;
+                    }
+                    if char == 'I' {
+                        new_name_string.push('l');
+                    } else {
+                        for char in char.to_lowercase() {
+                            new_name_string.push(char);
+                        }
+                    }
                 }
+                new_name = Some(new_name_string);
+                break;
             }
         }
-        Some(Cow::Owned(new_name))
+        match new_name {
+            Some(name) => Some(Cow::Owned(name)),
+            None => Some(Cow::Borrowed(name)),
+        }
     }
 }
+
+#[derive(Error, Debug)]
 pub enum NameLeaseError {
+    #[error("Gebruikersnaam is ongeldig.")]
     Invalid,
+    #[error("Gebruikersnaam is bezet.")]
     Taken,
+    #[error("INT: db error")]
+    Db(#[from] sqlx::Error),
 }
 
 #[derive(Eq, PartialEq, Clone, Hash)]
-pub struct Key {
+pub struct UserId {
     uuid: Uuid,
     anon: bool,
 }
-impl Key {
-    pub fn new() -> Key {
+impl UserId {
+    pub fn new() -> UserId {
         Self {
             uuid: Uuid::new_v4(),
             anon: true,
@@ -148,8 +181,11 @@ impl Key {
         let uuid = Uuid::parse_str(&string[1..]).ok()?;
         Some(Self { uuid, anon })
     }
+    pub fn uuid(&self) -> Uuid {
+        self.uuid
+    }
 }
-impl Display for Key {
+impl Display for UserId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.anon {
             f.write_str("a")?;
