@@ -2,7 +2,11 @@
 <!DOCTYPE html>
 <html>
   <head>
+    {{#if debug}}
+    <title>Global Chat (debug)</title>
+    {{else}}
     <title>Global Chat</title>
+    {{/if}}
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="http{{root_url}}/static/logo.png">

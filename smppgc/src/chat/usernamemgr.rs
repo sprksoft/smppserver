@@ -80,13 +80,13 @@ impl UsernameManager {
         };
         let name = sqlx::query!(
             "WITH inserted AS (
-                INSERT INTO name_links (name, owner, created_at) VALUES ($2, $1, extract(epoch from now())) ON CONFLICT (name) DO UPDATE SET created_at = extract(epoch from now()) WHERE name_links.owner = $1
+                INSERT INTO name_links (name, owner, created_at) VALUES ($2, $1, extract(epoch from now())) ON CONFLICT (name) DO UPDATE SET created_at = extract(epoch from now()) WHERE name_links.owner = $1 AND name_links.name=$2
                 RETURNING CASE
                     WHEN name_links.owner = $1 THEN name_links.name
                     ELSE NULL
                 END
             ), removed AS (
-                DELETE FROM name_links WHERE name NOT IN (SELECT name FROM name_links WHERE owner=$1 ORDER BY created_at DESC LIMIT $3)
+                DELETE FROM name_links WHERE name NOT IN (SELECT name FROM name_links WHERE owner=$1 ORDER BY created_at DESC LIMIT $3) AND owner=$1
                 ) SELECT * FROM inserted",
             user_id.uuid(),
             &name,
