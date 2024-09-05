@@ -13,40 +13,6 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::db::{self, Db};
-struct NameSlot {
-    name: Rc<str>,
-    last_used: u64,
-    owner: UserId,
-}
-impl NameSlot {
-    pub fn new(owner: UserId, name: Rc<str>) -> Self {
-        Self {
-            last_used: Self::epoch(SystemTime::now()),
-            owner,
-            name,
-        }
-    }
-    fn epoch(now: SystemTime) -> u64 {
-        now.duration_since(SystemTime::UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_secs()
-    }
-    pub fn lease(&mut self, name: Arc<str>, key: UserId, reserve_time: u64) -> Option<NameLease> {
-        if name.as_ref() != self.name.as_ref() {
-            return None;
-        }
-        let now = SystemTime::now();
-
-        let last_used_time = SystemTime::UNIX_EPOCH + Duration::from_secs(self.last_used);
-        let age = now.duration_since(last_used_time).unwrap().as_secs();
-        if self.owner == key || age > reserve_time {
-            self.last_used = Self::epoch(now);
-            self.owner = key;
-            return Some(NameLease(name));
-        }
-        None
-    }
-}
 
 pub struct NameLease(Arc<str>);
 impl Deref for NameLease {

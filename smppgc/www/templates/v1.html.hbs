@@ -23,16 +23,10 @@
     <script type="text/javascript">
       //from: https://github.com/doomjs/dataview-getstring
       DataView.prototype.getString = function(offset, length){
-        var end = typeof length == 'number' ? offset + length : this.byteLength;
-        var text = '';
-        var val = -1;
-
-        while (offset < this.byteLength && offset < end){
-          val = this.getUint8(offset++);
-          text += String.fromCharCode(val);
-        }
-
-        return text;
+        var len = typeof length == 'number' ? length : this.byteLength;
+        let decoder = new TextDecoder();
+        let dv = new DataView(this.buffer, offset, len);
+        return decoder.decode(dv);
       };
 
       {{#if skip_login}}
