@@ -1,7 +1,9 @@
 use std::{
     borrow::Cow,
+    cell::Cell,
     hash::Hash,
     sync::{atomic::AtomicU16, Arc},
+    time::{Duration, SystemTime},
 };
 
 use futures_util::{SinkExt, StreamExt};
@@ -16,7 +18,7 @@ use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
 use super::{
-    joined_total,
+    joined_total, packet,
     usernamemgr::{NameLease, UserId},
     Chat,
 };
@@ -25,12 +27,10 @@ use super::{
 pub struct Message {
     pub sender: Arc<str>,
     pub content: Arc<str>,
+    pub timestamp: u32,
     pub sender_id: u16,
 }
 impl Message {
-    pub const USERID_SPECIAL: u16 = 0;
-    pub const SUBID_SETUP: u8 = 0;
-    pub const SUBID_USERJOIN: u8 = 1;
     pub fn is_valid(&self) -> bool {
         if self.content.as_bytes().len() > 100 {
             return false;
@@ -47,55 +47,6 @@ impl Message {
             }
         }
         true
-    }
-    pub fn new_setup<'a, 'b>(
-        key: UserId,
-        id: u16,
-        clients: Vec<ClientInfo>,
-        history: Vec<Message>,
-    ) -> tokio_tungstenite::tungstenite::Message {
-        let key_str = key.to_string();
-        let key_str_bytes = key_str.as_bytes();
-        let mut data = Vec::with_capacity(key_str_bytes.len() + 3);
-        data.extend_from_slice(&Self::USERID_SPECIAL.to_be_bytes());
-        data.push(Self::SUBID_SETUP);
-        data.extend_from_slice(&id.to_be_bytes());
-        data.extend_from_slice(key_str_bytes);
-
-        for client in clients {
-            let name_bytes = client.username.as_bytes();
-            data.reserve(name_bytes.len() + 3);
-            data.extend_from_slice(&client.id.to_be_bytes());
-            data.push(name_bytes.len() as u8);
-            data.extend_from_slice(name_bytes);
-        }
-        data.extend_from_slice(&Self::USERID_SPECIAL.to_be_bytes());
-        for message in history {
-            let sender_bytes = message.sender.as_bytes();
-            let content_bytes = message.content.as_bytes();
-            data.reserve(sender_bytes.len() + content_bytes.len() + 2);
-            data.push(sender_bytes.len() as u8);
-            data.extend_from_slice(sender_bytes);
-            data.push(content_bytes.len() as u8);
-            data.extend_from_slice(content_bytes);
-        }
-        tokio_tungstenite::tungstenite::Message::Binary(data)
-    }
-    pub fn new_client_joined(client: &ClientInfo) -> tokio_tungstenite::tungstenite::Message {
-        let username_bytes = client.username.as_bytes();
-        let mut data = Vec::with_capacity(username_bytes.len() + 5);
-        data.extend_from_slice(&Self::USERID_SPECIAL.to_be_bytes());
-        data.push(Self::SUBID_USERJOIN);
-        data.extend_from_slice(&client.id.to_be_bytes());
-        data.extend_from_slice(&username_bytes);
-        tokio_tungstenite::tungstenite::Message::Binary(data)
-    }
-    pub fn new_message(mesg: &Message) -> tokio_tungstenite::tungstenite::Message {
-        let content_bytes = mesg.content.as_bytes();
-        let mut data = Vec::with_capacity(content_bytes.len() + 2);
-        data.extend_from_slice(&mesg.sender_id.to_be_bytes());
-        data.extend_from_slice(content_bytes);
-        tungstenite::Message::Binary(data)
     }
 }
 
@@ -128,7 +79,7 @@ impl ClientFactory {
     ) -> Result<Client> {
         let id = self.reserve_id();
         joined_total::inc();
-        ws.send(Message::new_setup(
+        ws.send(packet::new_setup(
             key,
             id,
             chat_state.clients().await,
@@ -141,6 +92,7 @@ impl ClientFactory {
         };
         let left_sender = chat_state.left_sender();
         Ok(Client {
+            seq_id: Cell::new(0),
             ws,
             info,
             left_sender,
@@ -166,13 +118,14 @@ impl From<tungstenite::Error> for PacketError {
     }
 }
 pub struct Client {
+    seq_id: Cell<u8>,
     ws: DuplexStream,
     info: ClientInfo,
     left_sender: rocket::tokio::sync::broadcast::Sender<ClientInfo>,
 }
 impl Client {
     pub async fn forward_client(&mut self, client: &ClientInfo) -> Result<()> {
-        self.ws.send(Message::new_client_joined(client)).await?;
+        self.ws.send(packet::new_client_joined(client)).await?;
         Ok(())
     }
     pub async fn forward_all_clients(
@@ -180,19 +133,26 @@ impl Client {
         clients: impl Iterator<Item = &ClientInfo>,
     ) -> Result<()> {
         for client in clients {
-            self.ws.feed(Message::new_client_joined(client)).await?;
+            self.ws.feed(packet::new_client_joined(client)).await?;
         }
         self.ws.flush().await?;
         Ok(())
     }
     pub async fn forward(&mut self, mesg: &Message) -> Result<()> {
-        self.ws.send(Message::new_message(mesg)).await?;
+        let seq_id = self.seq_id.take();
+        self.ws.send(packet::new_seq_message(mesg, seq_id)).await?;
+        self.seq_id.set(seq_id);
         Ok(())
     }
     pub async fn forward_all(&mut self, messages: impl Iterator<Item = &Message>) -> Result<()> {
+        let mut seq_id = self.seq_id.take();
         for message in messages {
-            self.ws.feed(Message::new_message(message)).await?;
+            self.ws
+                .feed(packet::new_seq_message(message, seq_id))
+                .await?;
+            seq_id += 1;
         }
+        self.seq_id.set(seq_id);
         self.ws.flush().await?;
         Ok(())
     }
@@ -215,7 +175,18 @@ impl Client {
             return Ok(None);
         }
         let content = String::from_utf8_lossy(&message.into_data()).to_string();
+
+        let timestamp = (SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_else(|_| {
+                error!("Time went backwards");
+                Duration::from_secs(0)
+            })
+            .as_secs()
+            / 60) as u32;
+
         Ok(Some(Message {
+            timestamp,
             sender_id: self.info.id(),
             sender: self.info.username.clone(),
             content: content.into(),
@@ -256,16 +227,19 @@ pub struct ClientInfo {
     id: u16,
 }
 impl Eq for ClientInfo {}
+impl ClientInfo {
+    pub fn id(&self) -> u16 {
+        self.id
+    }
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+}
 impl PartialEq for ClientInfo {
     fn eq(&self, other: &Self) -> bool {
         other.id == self.id
     }
     fn ne(&self, other: &Self) -> bool {
         other.id != self.id
-    }
-}
-impl ClientInfo {
-    pub fn id(&self) -> u16 {
-        self.id
     }
 }

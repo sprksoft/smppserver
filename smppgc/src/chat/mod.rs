@@ -11,6 +11,7 @@ use tokio::sync::{
 };
 
 pub mod client;
+mod packet;
 pub mod usernamemgr;
 
 use crate::{dropvec::DropVec, Config};
