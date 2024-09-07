@@ -15,6 +15,7 @@ mod db;
 #[cfg(debug_assertions)]
 mod debug;
 pub mod dropvec;
+mod mesg_filter;
 pub mod socket;
 pub mod static_routing;
 mod template;

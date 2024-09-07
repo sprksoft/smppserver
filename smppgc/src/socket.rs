@@ -14,7 +14,9 @@ use crate::{
         usernamemgr::{NameLeaseError, UserId},
         Chat,
     },
-    db, OfflineConfig,
+    db,
+    mesg_filter::{self, Cmd, FilterResult},
+    OfflineConfig,
 };
 
 #[derive(Responder)]
@@ -116,18 +118,22 @@ pub async fn socket_v1(
                         if last_mesg_sec < rate_limit.min_message_time_soft{
                             burst+=rate_limit.min_message_time_soft.saturating_sub(last_mesg_sec)*2.clamp(0, isize::MAX);
                         }
-                        if mesg.is_valid(){
-                            if mesg.content.as_ref() == "/blockme"{
+                        match mesg_filter::filter(mesg){
+                            FilterResult::Cmd(Cmd::BlockMe) => {
                                 blockme=true;
-                            }
-                            if mesg.content.as_ref() == "/killme"{
+                            },
+                            FilterResult::Cmd(Cmd::KillMe) => {
                                 return Ok(());
                             }
-                            if !blockme{
-                                trace!("got message from {}: {}", mesg.sender, mesg.content);
-                                let _ = messages_sender.send(mesg);
+                            FilterResult::Invalid => {},
+                            FilterResult::Message(mesg) => {
+                                if !blockme{
+                                    trace!("got message from {}: {}", mesg.sender, mesg.content);
+                                    let _ = messages_sender.send(mesg);
+                                }
                             }
                         }
+
 
                     }
                     mesg = messages_receiver.recv() => {

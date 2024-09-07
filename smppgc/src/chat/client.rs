@@ -24,8 +24,8 @@ use super::{
 #[derive(Clone, Debug)]
 pub struct Message {
     pub sender: Arc<str>,
-    pub sender_id: u16,
     pub content: Arc<str>,
+    pub sender_id: u16,
 }
 impl Message {
     pub const USERID_SPECIAL: u16 = 0;
