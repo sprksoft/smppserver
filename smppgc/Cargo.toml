@@ -16,8 +16,9 @@ thiserror={version="1.0.61"}
 base64={version="0.22.1"}
 lmetrics={path="../lmetrics", features=["rocket"]}
 
-rocket_db_pools={version="0.2.0", features=["sqlx_postgres"]}
-sqlx={version="0.7", features=["macros", "uuid"]}
+rocket_db_pools={version="0.2.0", features=["deadpool_redis"]}
 rocket={version="0.5.1"}
 rocket_ws={version="0.1.1"}
 rocket_dyn_templates={version="0.2.0", features=["handlebars"]}
+
+censor={version="0.3"}

@@ -18,9 +18,9 @@ fi
 
 smppgc/gen_js.sh || exit 1
 
-if ! systemctl status postgresql > /dev/null ; then
+if ! systemctl status redis > /dev/null ; then
   echo "DB not running"
-  sudo systemctl start postgresql
+  sudo systemctl start redis
 fi
 
 

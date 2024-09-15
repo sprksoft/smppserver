@@ -17,6 +17,7 @@ mod db;
 mod debug;
 pub mod dropvec;
 mod mesg_filter;
+pub mod profanity;
 pub mod socket;
 pub mod static_routing;
 mod template;

@@ -1,31 +1,10 @@
-use rocket::{
-    error,
-    fairing::{self, AdHoc},
-    response, Build, Rocket,
-};
-use rocket_db_pools::Database;
-
-pub type Result<T, E = response::Debug<sqlx::Error>> = std::result::Result<T, E>;
+use rocket::{fairing::AdHoc, response};
+use rocket_db_pools::{deadpool_redis, Database};
 
 #[derive(Database)]
-#[database("sqlx")]
-pub struct Db(sqlx::PgPool);
+#[database("redis")]
+pub struct Db(deadpool_redis::Pool);
 
-async fn run_migrations(rocket: Rocket<Build>) -> fairing::Result {
-    match Db::fetch(&rocket) {
-        Some(db) => match sqlx::migrate!("../migrations").run(&**db).await {
-            Ok(_) => Ok(rocket),
-            Err(e) => {
-                error!("Failed to initialize sqlx database: {}", e);
-                Err(rocket)
-            }
-        },
-        None => Err(rocket),
-    }
-}
 pub fn stage() -> AdHoc {
-    AdHoc::on_ignite("db", |r| async {
-        r.attach(Db::init())
-            .attach(AdHoc::try_on_ignite("db migrations", run_migrations))
-    })
+    AdHoc::on_ignite("db", |r| async { r.attach(Db::init()) })
 }

@@ -41,8 +41,8 @@ pub async fn socket_v1(
     if offline_config.offline {
         return SocketV1Responder::Offline("smppgc offline");
     }
-    let key = if let Some(key) = key {
-        UserId::parse_str(key)
+    let key = if let Some(user_id) = key {
+        UserId::parse_str(user_id)
     } else {
         Some(UserId::new())
     };
@@ -55,6 +55,9 @@ pub async fn socket_v1(
         }
         None => Err(NameLeaseError::Invalid),
     };
+    if let Err(NameLeaseError::Db(ref e)) = name_lease {
+        error!("db error: {:?}", e);
+    }
 
     SocketV1Responder::Channel(ws.channel(move |mut stream| {
         Box::pin(async move {

@@ -35,12 +35,13 @@ pub fn new_setup<'a, 'b>(
 
     let key_str = key.to_string();
     let key_str_bytes = key_str.as_bytes();
-    let mut data = Vec::with_capacity(key_str_bytes.len() + 3);
+    let mut data = Vec::with_capacity(2 + 1 + 2 + key_str_bytes.len());
     data.extend_from_slice(&USERID_SPECIAL.to_be_bytes());
     data.push(SUBID_SETUP);
     data.extend_from_slice(&id.to_be_bytes());
     data.extend_from_slice(key_str_bytes);
 
+    data.extend_from_slice(&(clients.len() as u16).to_be_bytes());
     for client in clients {
         let name_bytes = client.username().as_bytes();
         data.reserve(name_bytes.len() + 3);
@@ -48,7 +49,6 @@ pub fn new_setup<'a, 'b>(
         data.push(name_bytes.len() as u8);
         data.extend_from_slice(name_bytes);
     }
-    data.extend_from_slice(&USERID_SPECIAL.to_be_bytes());
     for message in history {
         let sender_bytes = message.sender.as_bytes();
         let content_bytes = message.content.as_bytes();

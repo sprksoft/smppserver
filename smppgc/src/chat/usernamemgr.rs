@@ -1,5 +1,12 @@
-use rocket_db_pools::sqlx;
-use sqlx::PgConnection;
+use log::*;
+use rocket_db_pools::deadpool_redis::{
+    redis::{
+        self,
+        aio::{ConnectionLike, MultiplexedConnection},
+        pipe, AsyncCommands, ToRedisArgs,
+    },
+    Connection,
+};
 use std::{
     borrow::Cow,
     fmt::Display,
@@ -11,8 +18,6 @@ use std::{
 use thiserror::Error;
 
 use uuid::Uuid;
-
-use crate::db::{self, Db};
 
 pub struct NameLease(Arc<str>);
 impl Deref for NameLease {
@@ -35,35 +40,54 @@ impl UsernameManager {
         Self { max_reserved }
     }
 
+    fn now() -> u64 {
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH+Duration::from_secs(60*))
+            .unwrap_or_else(|_| {
+                error!("Time went backwards");
+                Duration::from_secs(0)
+            })
+            .as_millis() as u64
+    }
+
     pub async fn lease_name(
         &self,
         name: &str,
         user_id: UserId,
-        db: &mut PgConnection,
+        db: &mut MultiplexedConnection,
     ) -> Result<NameLease, NameLeaseError> {
-        let Some(name) = Self::validate_normalize_username(name) else {
+        let Some(norm_name) = Self::normalize_name(name) else {
             return Err(NameLeaseError::Invalid);
         };
-        let name = sqlx::query!(
-            "WITH inserted AS (
-                INSERT INTO name_links (name, owner, created_at) VALUES ($2, $1, extract(epoch from now())) ON CONFLICT (name) DO UPDATE SET created_at = extract(epoch from now()) WHERE name_links.owner = $1 AND name_links.name=$2
-                RETURNING CASE
-                    WHEN name_links.owner = $1 THEN name_links.name
-                    ELSE NULL
-                END
-            ), removed AS (
-                DELETE FROM name_links WHERE name NOT IN (SELECT name FROM name_links WHERE owner=$1 ORDER BY created_at DESC LIMIT $3) AND owner=$1
-                ) SELECT * FROM inserted",
-            user_id.uuid(),
-            &name,
-            self.max_reserved as i64
-        )
-        .fetch_optional(db)
-        .await?.map(|name|name.case).flatten();
 
-        match name {
-            Some(name) => Ok(NameLease(name.into())),
-            None => Err(NameLeaseError::Taken),
+        let claimed_names_key = format!("claimed_names:{}", user_id);
+        let wanted_name_key = format!("name_owners:{}", norm_name);
+
+        let mut pipe = redis::pipe();
+        pipe.atomic();
+        for name in db
+            .zrange::<_, String>(&claimed_names_key, (self.max_reserved) as isize, -1)
+            .await
+            .iter()
+        {
+            pipe.del(format!("name_owners:{}", name)).ignore();
+        }
+        pipe.zremrangebyrank(&claimed_names_key, self.max_reserved as isize, -1)
+            .ignore();
+
+        pipe.query_async(db).await?;
+        let wanted_slot: Option<String> = db.get(&wanted_name_key).await?;
+        let avail = wanted_slot
+            .map(|id| id == user_id.to_string())
+            .unwrap_or(true);
+
+        if avail {
+            pipe.set(&wanted_name_key, &user_id);
+            pipe.zadd(&claimed_names_key, &norm_name, u64::MAX - Self::now());
+            pipe.query_async(db).await?;
+            Ok(NameLease(name.into()))
+        } else {
+            Err(NameLeaseError::Taken)
         }
     }
 
@@ -75,39 +99,26 @@ impl UsernameManager {
         }
     }
 
-    fn validate_normalize_username<'a>(name: &'a str) -> Option<Cow<'a, str>> {
+    fn normalize_name<'a>(name: &'a str) -> Option<String> {
         let name: &str = name.trim();
         if name.len() > 20 || name.len() < 2 {
             return None;
         }
 
-        let mut new_name = None;
+        let mut new_name = String::with_capacity(name.len());
         for char in name.chars() {
             if !Self::is_valid_name_char(char) {
                 return None;
             }
-            if char.is_uppercase() {
-                let mut new_name_string = String::with_capacity(name.len());
-                for char in name.chars() {
-                    if !Self::is_valid_name_char(char) {
-                        return None;
-                    }
-                    if char == 'I' {
-                        new_name_string.push('l');
-                    } else {
-                        for char in char.to_lowercase() {
-                            new_name_string.push(char);
-                        }
-                    }
+            if char == 'I' {
+                new_name.push('l');
+            } else {
+                for char in char.to_lowercase() {
+                    new_name.push(char);
                 }
-                new_name = Some(new_name_string);
-                break;
             }
         }
-        match new_name {
-            Some(name) => Some(Cow::Owned(name)),
-            None => Some(Cow::Borrowed(name)),
-        }
+        Some(new_name)
     }
 }
 
@@ -118,7 +129,7 @@ pub enum NameLeaseError {
     #[error("Gebruikersnaam is bezet.")]
     Taken,
     #[error("INT: db error")]
-    Db(#[from] sqlx::Error),
+    Db(#[from] redis::RedisError),
 }
 
 #[derive(Eq, PartialEq, Clone, Hash)]
@@ -147,6 +158,16 @@ impl UserId {
         let uuid = Uuid::parse_str(&string[1..]).ok()?;
         Some(Self { uuid, anon })
     }
+    pub fn to_bytes_le(&self) -> [u8; 17] {
+        let mut out = [0; 17];
+        out.clone_from_slice(&self.uuid.to_bytes_le());
+        if self.anon {
+            out[16] = 0x61; //a
+        } else {
+            out[16] = 0x6C; //l
+        }
+        out
+    }
     pub fn uuid(&self) -> Uuid {
         self.uuid
     }
@@ -159,5 +180,13 @@ impl Display for UserId {
             f.write_str("l")?;
         }
         self.uuid.as_simple().fmt(f)
+    }
+}
+impl ToRedisArgs for UserId {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + redis::RedisWrite,
+    {
+        out.write_arg_fmt(self)
     }
 }

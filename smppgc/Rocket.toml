@@ -16,8 +16,8 @@ template_dir="www/templates"
 address = "127.0.0.1"
 log_level="normal"
 
-[debug.databases.sqlx]
-url="postgres://ldev@localhost/smppgc_debug"
+[debug.databases.redis]
+url="redis://localhost"
 
 
 [release]
@@ -26,5 +26,5 @@ template_dir="/var/smppgc/www/templates"
 address = "127.0.0.1"
 log_level = "critical"
 
-[release.databases.sqlx]
-url="postgres://www@localhost/smppgc_prod"
+[release.databases.redis]
+url="redis://localhost"

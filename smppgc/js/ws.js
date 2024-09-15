@@ -110,6 +110,21 @@ class SocketMgr{
     this.ws = new WebSocket(WEBSOCKET_URL+"?"+query);
     this.ws.binaryType = "arraybuffer";
 
+    this.ws.onclose = async (e) => {
+      this.users={};
+      let reason = e.reason;
+      if (!e.reason || e.reason.startsWith("INT:")){
+        if (e.reason) {
+          console.error("Internal Error: "+e.reason);
+        }else{
+          console.error("Reason empty");
+          console.error(e);
+        }
+        reason="Onverwachte fout.";
+      }
+      this.on_leave(e.code, reason);
+    }
+
     this.ws.onmessage = async (e) =>{
       let data = e.data;
       if (data instanceof ArrayBuffer){
@@ -130,20 +145,6 @@ class SocketMgr{
         }
       }
     };
-    this.ws.onclose = async (e) => {
-      this.users={};
-      let reason = e.reason;
-      if (!e.reason || e.reason.startsWith("INT:")){
-        if (e.reason) {
-          console.error("Internal Error: "+e.reason);
-        }else{
-          console.error("Reason empty");
-          console.error(e);
-        }
-        reason="Onverwachte fout.";
-      }
-      this.on_leave(e.code, reason);
-    }
   }
 
   async send(message){
