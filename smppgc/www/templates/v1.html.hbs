@@ -21,13 +21,6 @@
     {{#if offline}}
     {{else}}
     <script type="text/javascript">
-      //modified from: https://github.com/doomjs/dataview-getstring
-      DataView.prototype.getString = function(offset, length){
-        var len = typeof length == 'number' ? length : this.byteLength-offset;
-        let decoder = new TextDecoder();
-        let dv = new DataView(this.buffer, offset, len);
-        return decoder.decode(dv);
-      };
 
       {{#if skip_login}}
       const SKIP_LOGIN=true;

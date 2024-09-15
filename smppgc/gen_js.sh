@@ -2,6 +2,7 @@
 # Generate the static js file
 
 SOURCE_FILES="
+mkels.js
 ui.js
 ws.js
 index.js

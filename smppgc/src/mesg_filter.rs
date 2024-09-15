@@ -42,3 +42,6 @@ pub fn filter(mut mesg: Message) -> FilterResult {
 
     FilterResult::Message(mesg)
 }
+
+pub struct MesgFilter {}
+impl MesgFilter {}

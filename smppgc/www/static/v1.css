@@ -200,6 +200,20 @@ input {
   align-self: start;
   display:flex;
 }
+.message_top{
+  display:flex;
+  flex-direction: row;
+}
+.space{
+  flex-grow: 10;
+}
+.message_timestamp{
+  margin-left: 0.6rem;
+  font-weight: bold;
+  font-size: 0.6em;
+  opacity: 0.6;
+  color: var(--color_text);
+}
 .driehoek_bubble{
   position: relative;
   left: -18px;

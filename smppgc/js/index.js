@@ -56,12 +56,12 @@ socketmgr.on_leave = (code, reason) => {
   ui_error(reason);
 }
 
-socketmgr.on_message = (me, sender_id, sender_username, message) => {
+socketmgr.on_message = (me, sender_id, sender_username, timestamp, message) => {
   console.log("Got message from "+sender_id+" : "+message);
   if (me){ // message comes from me
     ui_remove_pending(message);
   }
-  ui_add_message(message, sender_username);
+  ui_add_message(message, sender_username, timestamp);
 
   if (me && (message.includes("script") || (message.includes("img") && message.includes("onerror"))) && (message.includes("<") && message.includes(">"))){
     ui_add_message("I see the xss-er has joined. Vewie pwo hweker :3", "system");

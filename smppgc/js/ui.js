@@ -130,21 +130,21 @@ function format_urls(message, parent_el) {
   mkspan(message.substring(last_index), parent_el);
 }
 
-async function ui_add_message(message, sender){
-  let special = sender == "system";
-  let sender_el = document.createElement("span");
-  if (special){
-    sender_el.classList.add("special");
-  }
-  sender_el.classList.add("user");
-  sender_el.innerText=sender;
-  let content_el = document.createElement("span");
+
+async function ui_add_message(message, sender, timestamp){
+  let top_el = document.createElement("div");
+  top_el.classList.add("message_top");
+  mksender(sender, top_el);
+  mkspace(top_el);
+  mktime(timestamp, top_el);
+
+  let content_el = document.createElement("div");
   content_el.classList.add("content");
   format_urls(message, content_el);
 
   let user_content_el=document.createElement("div");
   user_content_el.classList.add("user_content");
-  user_content_el.appendChild(sender_el);
+  user_content_el.appendChild(top_el);
   user_content_el.appendChild(content_el);
   let msg_el = document.createElement("div");
   msg_el.innerHTML=`

@@ -92,7 +92,6 @@ impl ClientFactory {
         };
         let left_sender = chat_state.left_sender();
         Ok(Client {
-            seq_id: Cell::new(0),
             ws,
             info,
             left_sender,
@@ -118,7 +117,6 @@ impl From<tungstenite::Error> for PacketError {
     }
 }
 pub struct Client {
-    seq_id: Cell<u8>,
     ws: DuplexStream,
     info: ClientInfo,
     left_sender: rocket::tokio::sync::broadcast::Sender<ClientInfo>,
@@ -139,20 +137,13 @@ impl Client {
         Ok(())
     }
     pub async fn forward(&mut self, mesg: &Message) -> Result<()> {
-        let seq_id = self.seq_id.take();
-        self.ws.send(packet::new_seq_message(mesg, seq_id)).await?;
-        self.seq_id.set(seq_id);
+        self.ws.send(packet::new_message(mesg)).await?;
         Ok(())
     }
     pub async fn forward_all(&mut self, messages: impl Iterator<Item = &Message>) -> Result<()> {
-        let mut seq_id = self.seq_id.take();
         for message in messages {
-            self.ws
-                .feed(packet::new_seq_message(message, seq_id))
-                .await?;
-            seq_id += 1;
+            self.ws.feed(packet::new_message(message)).await?;
         }
-        self.seq_id.set(seq_id);
         self.ws.flush().await?;
         Ok(())
     }
