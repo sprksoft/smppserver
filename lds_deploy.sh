@@ -1,8 +1,16 @@
 #!/bin/bash
 set -e
 
+
 ALLOW_DEPLOY_ON_MAIN="false"
 ALLOW_UNCOMMITED="false"
+
+if [[ "$@" == *"--allow-deploy-on-main"* ]] ; then
+  ALLOW_DEPLOY_ON_MAIN="true"
+fi
+if [[ "$@" == *"--allow-deploy-on-main"* ]] ; then
+  ALLOW_UNCOMMITED="true"
+fi
 
 year=$(date --utc +'%-Y')
 month=$(date --utc +'%-m')
