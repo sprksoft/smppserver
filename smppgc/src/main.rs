@@ -10,17 +10,17 @@ use rocket::routes;
 use rocket::serde::Deserialize;
 use rocket::{fairing::AdHoc, launch};
 use tokio::sync::Mutex;
+use utils::static_routing;
 
 pub mod chat;
-mod db;
 #[cfg(debug_assertions)]
 mod debug;
-pub mod dropvec;
 mod mesg_filter;
+pub mod names;
 pub mod profanity;
 pub mod socket;
-pub mod static_routing;
 mod template;
+mod utils;
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
@@ -32,9 +32,8 @@ pub struct RateLimitConfig {
 
 #[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
-pub struct Config {
+pub struct ChatConfig {
     pub max_stored_messages: usize,
-    pub max_reserved_names: u16,
     pub max_users: u16,
     pub rate_limit: RateLimitConfig,
 }
@@ -79,14 +78,14 @@ fn rocket() -> _ {
     let r = rocket::build()
         .mount("/", routes![index, server_version])
         .mount("/metrics", metrics)
-        .attach(db::stage())
         .attach(static_routing::stage())
         .attach(template::stage())
+        .attach(names::stage())
         .attach(AdHoc::config::<OfflineConfig>())
         .attach(AdHoc::on_ignite("chat", |r| async {
             let config = r
                 .figment()
-                .extract::<Config>()
+                .extract::<ChatConfig>()
                 .expect("No chat config found");
 
             r.mount("/", routes![socket::socket_v1])

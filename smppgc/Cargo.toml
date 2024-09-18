@@ -14,9 +14,9 @@ log={version="0.4.21"}
 uuid={version="1.9.0", features=["v4"]}
 thiserror={version="1.0.61"}
 base64={version="0.22.1"}
+dashmap={version="6.1.0"}
 lmetrics={path="../lmetrics", features=["rocket"]}
 
-rocket_db_pools={version="0.2.0", features=["deadpool_redis"]}
 rocket={version="0.5.1"}
 rocket_ws={version="0.1.1"}
 rocket_dyn_templates={version="0.2.0", features=["handlebars"]}

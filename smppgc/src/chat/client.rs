@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    cell::Cell,
     hash::Hash,
     sync::{atomic::AtomicU16, Arc},
     time::{Duration, SystemTime},
@@ -17,11 +16,8 @@ use rocket_ws::result::Result;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
-use super::{
-    joined_total, packet,
-    usernamemgr::{NameLease, UserId},
-    Chat,
-};
+use super::{joined_total, packet, Chat};
+use crate::names::{ClaimedName, UserId};
 
 #[derive(Clone, Debug)]
 pub struct Message {
@@ -74,7 +70,7 @@ impl ClientFactory {
         &self,
         mut ws: DuplexStream,
         key: UserId,
-        username: NameLease,
+        username: ClaimedName,
         chat_state: &Chat,
     ) -> Result<Client> {
         let id = self.reserve_id();

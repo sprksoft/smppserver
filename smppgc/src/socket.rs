@@ -2,7 +2,6 @@ use rocket::{get, Responder, State};
 use std::{borrow::Cow, sync::Arc, time::Instant};
 
 use log::*;
-use rocket_db_pools::Connection;
 use rocket_ws::{
     frame::{CloseCode, CloseFrame},
     Channel, WebSocket,
@@ -10,12 +9,9 @@ use rocket_ws::{
 use tokio::sync::{broadcast::error::RecvError, Mutex};
 
 use crate::{
-    chat::{
-        usernamemgr::{NameLeaseError, UserId},
-        Chat,
-    },
-    db,
+    chat::Chat,
     mesg_filter::{self, Cmd, FilterResult},
+    names::{NameClaimError, UserId, UsernameManager},
     OfflineConfig,
 };
 
@@ -36,7 +32,7 @@ pub async fn socket_v1(
     ws: WebSocket,
     offline_config: &State<OfflineConfig>,
     chat: &State<Arc<Mutex<Chat>>>,
-    mut db: Connection<db::Db>,
+    usrnamemgr: &State<UsernameManager>,
 ) -> SocketV1Responder {
     if offline_config.offline {
         return SocketV1Responder::Offline("smppgc offline");
@@ -49,15 +45,9 @@ pub async fn socket_v1(
 
     let chat: Arc<Mutex<Chat>> = chat.inner().clone();
     let name_lease = match key.clone() {
-        Some(key) => {
-            let mut chat = chat.lock().await;
-            chat.unmgr_mut().lease_name(username, key, &mut **db).await
-        }
-        None => Err(NameLeaseError::Invalid),
+        Some(key) => usrnamemgr.claim_name(username, key),
+        None => Err(NameClaimError::Invalid),
     };
-    if let Err(NameLeaseError::Db(ref e)) = name_lease {
-        error!("db error: {:?}", e);
-    }
 
     SocketV1Responder::Channel(ws.channel(move |mut stream| {
         Box::pin(async move {

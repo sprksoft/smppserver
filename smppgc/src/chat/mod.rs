@@ -12,13 +12,15 @@ use tokio::sync::{
 
 pub mod client;
 mod packet;
-pub mod usernamemgr;
 
-use crate::{dropvec::DropVec, Config};
+use crate::{
+    names::{ClaimedName, UserId},
+    utils::dropvec::DropVec,
+    ChatConfig,
+};
 use client::{Client, ClientFactory, ClientInfo, Message};
 use lmetrics::metrics;
 use thiserror::Error;
-use usernamemgr::{NameLease, UserId, UsernameManager};
 
 metrics! {
     pub counter joined_total("Total joined users",[]);
@@ -41,13 +43,12 @@ pub struct Chat {
 
     clients: Arc<Mutex<HashSet<ClientInfo>>>,
     history: Arc<Mutex<DropVec<Message>>>,
-    unmgr: UsernameManager,
     client_factory: ClientFactory,
 
-    config: Config,
+    config: ChatConfig,
 }
 impl Chat {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: ChatConfig) -> Self {
         let (messages_sender, messages_receiver) = broadcast::channel(20);
         let (join_sender, _) = broadcast::channel(20);
         let (left_sender, left_receiver) = broadcast::channel(20);
@@ -68,7 +69,6 @@ impl Chat {
             left_sender,
             clients,
             history,
-            unmgr: UsernameManager::new(config.max_reserved_names),
             client_factory: ClientFactory::new(),
             config,
         }
@@ -121,8 +121,8 @@ impl Chat {
     pub async fn new_client(
         &mut self,
         mut ws: DuplexStream,
-        key: UserId,
-        leased_name: NameLease,
+        user_id: UserId,
+        leased_name: ClaimedName,
     ) -> Result<Client, NewClientError> {
         if self.config.max_users != 0
             && self.config.max_users <= self.clients.lock().await.len() as u16
@@ -136,7 +136,7 @@ impl Chat {
         }
         let client = self
             .client_factory
-            .new_client(ws, key, leased_name, &self)
+            .new_client(ws, user_id, leased_name, &self)
             .await
             .map_err(|e| NewClientError::SetupPacketError(e))?;
         let _ = self.join_sender.send(client.client_info()); // throws error when no receivers
@@ -145,10 +145,7 @@ impl Chat {
         Ok(client)
     }
 
-    pub fn unmgr_mut(&mut self) -> &mut UsernameManager {
-        &mut self.unmgr
-    }
-    pub fn config(&self) -> &Config {
+    pub fn config(&self) -> &ChatConfig {
         &self.config
     }
 

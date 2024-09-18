@@ -27,9 +27,7 @@ macro_rules! theme {
 
             async fn from_request(req: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
                 $(
-                    let $param = match req
-                    .query_value::<String>(stringify!($param))
-                    .unwrap_or(Ok($default_value.to_string()))
+                    let $param = match req .query_value::<String>(stringify!($param)) .unwrap_or(Ok($default_value.to_string()))
                     {
                         Ok(value) => {
                             if value.len() > 8{

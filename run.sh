@@ -18,11 +18,6 @@ fi
 
 smppgc/gen_js.sh || exit 1
 
-if ! systemctl status redis > /dev/null ; then
-  echo "DB not running"
-  sudo systemctl start redis
-fi
-
 
 if [[ "$1" == "--fast" ]] ; then
   echo "using nightly..."

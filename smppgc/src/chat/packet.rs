@@ -1,9 +1,7 @@
 use tokio_tungstenite::tungstenite;
 
-use super::{
-    client::{ClientInfo, Message},
-    usernamemgr::UserId,
-};
+use super::client::{ClientInfo, Message};
+use crate::names::UserId;
 
 pub const USERID_SPECIAL: u16 = 0;
 pub const SUBID_SETUP: u8 = 0;

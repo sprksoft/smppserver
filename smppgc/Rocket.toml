@@ -16,15 +16,9 @@ template_dir="www/templates"
 address = "127.0.0.1"
 log_level="normal"
 
-[debug.databases.redis]
-url="redis://localhost"
-
-
 [release]
 static_dir="/var/smppgc/www/static"
 template_dir="/var/smppgc/www/templates"
 address = "127.0.0.1"
 log_level = "critical"
 
-[release.databases.redis]
-url="redis://localhost"
