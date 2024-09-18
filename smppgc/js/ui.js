@@ -16,8 +16,7 @@ function ui_show_login(show) {
     sendinput.disabled=true;
     ui_clear_messages();
   }else{
-    login_popup.style="display:none";
-    sendinput.disabled=false;
+    login_popup.style="display:none"; sendinput.disabled=false;
     sendinput.focus();
   }
 }

@@ -20,7 +20,10 @@ function mktime(time, parent_el) {
   if (time == undefined){ return; }
   let time_el = document.createElement("small");
   time_el.classList.add("message_timestamp")
-  time_el.innerText = time.toLocaleString();
+  time_el.innerText = time.toLocaleString(undefined, {
+    dateStyle:"short",
+    timeStyle:"short",
+  });
   parent_el.appendChild(time_el);
 }
 /* == smppgc/js/ui.js == */
@@ -42,8 +45,7 @@ function ui_show_login(show) {
     sendinput.disabled=true;
     ui_clear_messages();
   }else{
-    login_popup.style="display:none";
-    sendinput.disabled=false;
+    login_popup.style="display:none"; sendinput.disabled=false;
     sendinput.focus();
   }
 }
