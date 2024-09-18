@@ -63,7 +63,9 @@ impl UsernameManager {
 
         if claimed_names.len() == self.max_reserved as usize {
             if let Some(name) = claimed_names.pop_back() {
-                self.names.remove(&name);
+                if name != norm_name {
+                    self.names.remove(&name);
+                }
             }
         }
         claimed_names.push_front(norm_name);
