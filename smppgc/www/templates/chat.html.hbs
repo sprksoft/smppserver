@@ -1,0 +1,47 @@
+<!-- vim: set ft=html: -->
+<div id="chat">
+  <header id="topbar">
+    <button id="leavebtn" class="button">
+      <svg
+          width="20"
+          height="20"
+          viewBox="0 0 26.45833 26.45833"
+          version="1.1"
+          transform="scale(-1,1)">
+        <path
+            style="stroke:currentColor;stroke-width:3.96875;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none"
+            d="M 2.6458333,13.229167 H 23.8125"/>
+        <path
+            style="stroke:currentColor;stroke-width:3.96875;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none"
+            d="M 13.229167,2.6458333 23.8125,13.229167"/>
+        <path
+            style="stroke:currentColor;stroke-width:3.96875;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none"
+            d="M 13.229167,23.8125 23.8125,13.229167"/>
+      </svg>
+    </button>
+
+    <h2 class="chat-name">Global chat</h2>
+    <span id="connection-status" style="display:none">connecting</span>
+  </header>
+  <div id="mesgs">
+  </div>
+  <div class="bottom">
+    <div id="pending-mesgs"></div>
+    <div id="botbar">
+      <div class="grow-wrap">
+        <textarea oninput="this.parentNode.dataset.replicatedValue = this.value" maxlength="{{max_message_len}}" id="send-input" type="text"></textarea>
+      </div>
+      <button id="sendbtn" class="button">
+        <svg
+            width="20"
+            height="20"
+            viewBox="0 0 5.2916666 5.2916666"
+            version="1.1">
+          <path
+              style="fill:currentColor;stroke:currentColor;stroke-width:0.529167;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+              d="M 4.7624998,2.6458335 0.52916665,0.52916671 1.0583333,2.1166668 3.9687498,2.6458335 1.0583333,3.1750002 0.52916665,4.7625003 Z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>

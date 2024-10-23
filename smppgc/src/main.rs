@@ -40,12 +40,15 @@ pub struct ChatConfig {
 
 #[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
-pub struct OfflineConfig {
-    pub offline: bool,
+pub struct MaxLengthConfig {
+    pub max_message_len: usize,
+    pub max_username_len: usize,
 }
 
-pub struct ListenAddress {
-    pub listen_address: SocketAddr,
+#[derive(Deserialize, Debug)]
+#[serde(crate = "rocket::serde")]
+pub struct OfflineConfig {
+    pub offline: bool,
 }
 
 #[get("/version")]
@@ -82,6 +85,7 @@ fn rocket() -> _ {
         .attach(template::stage())
         .attach(names::stage())
         .attach(AdHoc::config::<OfflineConfig>())
+        .attach(AdHoc::config::<MaxLengthConfig>())
         .attach(AdHoc::on_ignite("chat", |r| async {
             let config = r
                 .figment()
@@ -92,11 +96,5 @@ fn rocket() -> _ {
                 .manage(Arc::new(Mutex::new(Chat::new(config))))
         }));
     #[cfg(debug_assertions)]
-    let r = r.attach(debug::stage());
-
-    let ip = r.figment().extract_inner::<IpAddr>("address").unwrap();
-    let port = r.figment().extract_inner::<u16>("port").unwrap();
-    r.manage(ListenAddress {
-        listen_address: SocketAddr::new(ip, port),
-    })
+    r.attach(debug::stage())
 }

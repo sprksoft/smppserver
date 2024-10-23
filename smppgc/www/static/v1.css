@@ -1,10 +1,128 @@
 @import url(https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic,700,700italic&subset=latin,latin-ext);
 body{
+  --color-shadow: var(--color_base00);
   --color_error: #c03010;
   color: var(--color_text);
   background: var(--color_base01);
   font-family: "Open Sans", "Helvetica Neue", helvetica, sans-serif
 }
+
+#topbar,#botbar{
+  background: var(--color_base02);
+  display: flex;
+  flex-direction: row;
+}
+#topbar > *{
+  padding-right: 2em;
+}
+
+#connection-status{
+  font-weight: bold;
+  color: var(--color_accent);
+  margin-top: auto;
+  margin-bottom: auto;
+}
+#connection-status:after{
+  color: var(--color_accent);
+  animation: spinner 3s ease infinite;
+  content: "";
+  display:inline-block;
+  width: 1em;
+}
+.grow-wrap::after,
+#send-input{
+  flex-grow: 80;
+  resize: none;
+  border: none;
+  border-radius: 15px;
+  margin: 3px;
+  font-size: 1em;
+  font-family: inherit;
+  background-color: var(--color_base02);
+  color: var(--color_text);
+  padding: 0.5em 2em 0.5em 2em;
+  max-height:300px;
+}
+
+/* auto grow */
+.grow-wrap {
+  /* easy way to plop the elements on top of each other and have them both sized based on the tallest one's height */
+  display: grid;
+  flex-grow: 1000;
+}
+.grow-wrap::after {
+  /* Note the weird space! Needed to preventy jumpy behavior */
+  content: attr(data-replicated-value) " ";
+
+  /* This is how textarea text behaves */
+  white-space: pre-wrap;
+
+  /* Hidden from view, clicks, and screen readers */
+  visibility: hidden;
+}
+.grow-wrap > textarea {
+  /* You could leave this, but after a user resizes, then it ruins the auto sizing */
+  resize: none;
+
+  /* Firefox shows scrollbar on growth, you can hide like this. */
+  overflow: hidden;
+}
+.grow-wrap > textarea,
+.grow-wrap::after {
+
+  /* Place on top of each other */
+  grid-area: 1 / 1 / 2 / 2;
+
+  overflow: auto;
+}
+/* end auto grow */
+
+@keyframes spinner{
+	0% {
+    content: " ";
+	}
+  25%{
+    content: ".";
+  }
+
+  50%{
+    content: "..";
+  }
+
+  75%{
+    content: "..."
+  }
+
+  100%{
+    content: " ";
+  }
+
+}
+
+.chat-name{
+  flex-grow: 10;
+}
+
+.button{
+  background-color: var(--color_base02);
+  border: none;
+  color: var(--color_accent);
+  transition: background-color 1s ease-in-out;
+
+  padding: 1em;
+  padding-left:2em;
+  padding-right:2em;
+  cursor: pointer;
+}
+.button:hover{
+  background-color:var(--color_base03);
+  cursor: unset;
+}
+.button[disabled]{
+  cursor: unset;
+  color: var(--color_base03);
+}
+
 
 .warning{
   font-weight: bold;
@@ -28,15 +146,44 @@ body{
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  border: 3px solid var(--color_accent);
-  border-radius: 15px;
-  width: 600px;
+  border: none;
+  border-radius: 30px;
+  max-width: 600px;
   padding: 8px;
-  background-color: var(--color_base01);
-  box-shadow: 20px 20px 80px #000000ff;
+  background-color: var(--color_base01-b0);
+  backdrop-filter: blur(10px);
+  box-shadow: 10px 10px 2px var(--color-shadow);
 
   display: flex;
   flex-direction: column;
+}
+
+.login-popup > .container{
+  margin: 0.5em;
+  margin-top: 1em;
+  display:flex;
+  flex-direction: row;
+  background: var(--color_base02);
+  border-radius: 10000px;
+  overflow:hidden;
+}
+
+#name-input {
+  font-family: inherit;
+  font-size: inherit;
+  border:none;
+  background: var(--color_base02);
+  color: var(--color_text);
+  display: block;
+  padding: 14px 20px;
+  flex-grow:10;
+  margin: 3px;
+  border-radius: 10000px;
+}
+
+#name-input::placeholder{
+  color: var(--color_text);
+  opacity: 0.7;
 }
 
 a{
@@ -48,76 +195,20 @@ a:hover{
 }
 
 .logo{
-  margin: 2rem 0px 2rem 0px;
-  display:flex;
-  flex-direction: row;
-  justify-content:center;
-}
-.logo .logo-text{
-  display:flex;
-  flex-direction: column;
-}
-
-.logo img{
-  object-fit: contain;
-  flex: 0.5 0;
-}
-.logo span{
-  font-weight: bold;
-  margin-left: 1rem;
-  font-size: 70px;
-}
-
-.container{
-  display:flex;
-  flex-direction: column;
-}
-
-input {
-  background: var(--color_base02);
-  color: var(--color_text);
-  display: block;
-  padding: 14px 20px;
-  margin: 8px 4px;
-  border-radius: 1000px;
-  border: 3px solid var(--color_base03);
-}
-
-.buttons{
-  display:flex;
-  flex-direction: row;
-}
-
-.button {
-  flex-grow: 1;
-  background: var(--color_base02);
+  margin: 2rem;
+  margin-left:auto;
+  margin-right:auto;
   color: var(--color_accent);
-  font-weight: bold;
-  padding: 14px 10px;
-  margin: 8px 4px;
-  border: 3px solid var(--color_base03);
-  border-radius: 15px;
-  cursor: pointer;
-  filter: brightness(100%);
-}
-
-.button:hover {
-  filter: brightness(120%);
-}
-.button[disabled]:hover{
-  filter:unset;
-}
-.button[disabled]{
-  cursor:unset;
+  max-width: 50vw;
+  filter: drop-shadow(10px 10px 2px var(--color-shadow));
 }
 
 
-#err-info-mesg{
+#err-mesg{
   margin-top: 1rem;
   font-weight: bold;
   text-align: center;
 }
-
 .err{
   color: var(--color_error);
 }
@@ -130,7 +221,7 @@ input {
   color: var(--color_accent);
 }
 
-#typing-place{
+#chat{
   position:absolute;
   display:flex;
   flex-direction: column;
@@ -154,43 +245,13 @@ input {
   margin: 10px;
 }
 #pending-mesgs div:after{
-  content: " /";
-  animation: mesg-loading 0.4s ease infinite;
+  content: " ";
+  animation: spinner 3s ease infinite;
   color: var(--color_accent);
-}
-@keyframes mesg-loading{
-	0% {
-    content: " |";
-	}
-  25%{
-    content: " /";
-  }
-
-  50%{
-    content: " -";
-  }
-
-  75%{
-    content: " \\"
-  }
-
-  100%{
-    content: " |";
-  }
-
-
-}
-.bottom-bar{
-  display:flex;
-  flex-direction: row;
-}
-#send-input{
-  flex-grow: 80;
-  border-radius: 15px;
 }
 .message{
   padding: 10px;
-  padding-top: 5px;
+  padding-top: 0px;
   background-color: var(--color_base03);
   border-radius: 10px;
   border-top-left-radius: 0px;
@@ -198,7 +259,9 @@ input {
   margin-left: 20px;
   margin-right: 20px;
   align-self: start;
+  max-width: -moz-available;
   display:flex;
+  flex-direction: column;
 }
 .message_top{
   display:flex;
@@ -217,7 +280,7 @@ input {
 .driehoek_bubble{
   position: relative;
   left: -18px;
-  top: -5px;
+  top: 0px;
   color: var(--color_base03);
 }
 .user{
@@ -226,10 +289,9 @@ input {
   margin-bottom: 2px;
 }
 .user_content{
+  margin-top:-5px; /* To offset the space taken up by the arrow */
+  max-width:100%;
+  word-wrap: break-word;
   display:flex;
   flex-direction:column;
-}
-#name-input::placeholder{
-  color: var(--color_text);
-  opacity: 0.7;
 }

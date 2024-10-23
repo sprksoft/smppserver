@@ -52,6 +52,7 @@ class SocketMgr{
 
   #local_id;
   #users;
+  #user_wants_leave;
 
   constructor(){
     this.users={};
@@ -60,6 +61,7 @@ class SocketMgr{
   #on_special_message(sub_id, reader){
     switch(sub_id){
       case SUBID_SETUP:
+        this.on_join();
         this.local_id = reader.getUint16();
         this.local_key = reader.getString(0, KEY_LENGTH);
         this.on_keychange(this.local_key);
@@ -83,7 +85,6 @@ class SocketMgr{
         }
 
         console.log("Setup packet "+this.local_id+" "+this.local_key);
-        this.on_join();
         break;
       case SUBID_USERJOIN:
         let id = reader.getUint16(0);
@@ -99,6 +100,7 @@ class SocketMgr{
   }
 
   async join(key, username){
+    this.user_wants_leave=false;
     if (this.ws !== undefined){
       await this.ws.close();
     }
@@ -107,7 +109,9 @@ class SocketMgr{
     if (key !== undefined && key !== null && key !== ""){
       query+="&key="+key;
     }
-    this.ws = new WebSocket(WEBSOCKET_URL+"?"+query);
+    let fullurl = WEBSOCKET_URL+"?"+query;
+    console.log("creating socket: "+fullurl);
+    this.ws = new WebSocket(fullurl);
     this.ws.binaryType = "arraybuffer";
 
     this.ws.onclose = async (e) => {
@@ -122,7 +126,7 @@ class SocketMgr{
         }
         reason="Onverwachte fout.";
       }
-      this.on_leave(e.code, reason);
+      this.on_leave(e.code, reason, this.user_wants_leave);
     }
 
     this.ws.onmessage = async (e) =>{
@@ -148,6 +152,9 @@ class SocketMgr{
   }
 
   async send(message){
+    if (this.ws.readyState !== WebSocket.OPEN){
+      return false;
+    }
     if (this.ws.bufferedAmount > 2){
       return false;
     }
@@ -156,6 +163,7 @@ class SocketMgr{
   }
 
   async leave(){
+    this.user_wants_leave=true;
     await this.ws.close(1000, "Dag dag ik ga je missen. xxx");
   }
 

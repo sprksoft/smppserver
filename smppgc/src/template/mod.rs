@@ -8,16 +8,30 @@ use rocket::{
 };
 use rocket_dyn_templates::{context, Template};
 
-use crate::{ListenAddress, OfflineConfig};
+use crate::{MaxLengthConfig, OfflineConfig};
 
+macro_rules! css_var {
+    ($name:ident, $($alpha:literal),*) => {
+        concat!($(
+                "--", stringify!($name), "-", $alpha, ": #{}", $alpha, ";"
+        ),*)
+    };
+    ($name:ident) => {
+        concat!("--", stringify!($name), ": #{};")
+    }
+}
+
+fn string_void<'a>(string: &'a str, _void: &'static str) -> &'a str {
+    string
+}
 macro_rules! theme {
-    ($vis:vis $name:ident{$($param:ident:$default_value:literal),*}) => {
+    ($vis:vis $name:ident{$($param:ident:$default_value:literal:[$($alpha:literal),*]),*}) => {
         $vis struct $name {
             pub $($param:String),*
         }
         impl $name {
             pub fn css(&self) -> String {
-                format!(concat!("body{{", $(concat!("--", stringify!($param), ": #{};")),*, "}}"), $(self.$param),*)
+                format!(concat!("body{{", $(css_var!($param), css_var!($param, $($alpha),*)),*, "}}"), $(self.$param, $(string_void(&self.$param, $alpha),)* )*)
             }
         }
 
@@ -53,14 +67,14 @@ macro_rules! theme {
 
 theme! {
     SmppTheme{
-        color_text:"c2bab2",
-        color_base00:"191817",
-        color_base01:"232020",
-        color_base02:"2b2828",
-        color_base03:"353232",
-        color_base04:"3f3c3c",
-        color_base05:"4a4747",
-        color_accent:"ffd5a0"
+        color_text:"c2bab2":[],
+        color_base00:"191817":[],
+        color_base01:"232020":["b0"],
+        color_base02:"2b2828":[],
+        color_base03:"353232":[],
+        color_base04:"3f3c3c":[],
+        color_base05:"4a4747":[],
+        color_accent:"ffd5a0":[]
     }
 }
 
@@ -103,7 +117,7 @@ fn v1(
     placeholder: Option<&str>,
     skip_login: Option<bool>,
     offline_config: &State<OfflineConfig>,
-    listen_address: &State<ListenAddress>,
+    max_length_config: &State<MaxLengthConfig>,
 ) -> GcPageResponder {
     let placeholder = placeholder.unwrap_or("");
     if placeholder.contains(['<', '>', '=', '"', '"']) {
@@ -112,14 +126,22 @@ fn v1(
 
     let debug = cfg!(debug_assertions);
     let root_url = if debug {
-        format!("://{}", listen_address.listen_address)
+        "".to_string()
     } else {
         "s://ldev.eu.org/smpp/gc".to_string()
     };
     GcPageResponder::Ok {
         inner: Template::render(
             "v1",
-            context! {theme_css:theme.css(), placeholder:placeholder, root_url: root_url, debug: debug, offline: offline_config.offline, skip_login:skip_login.unwrap_or(false), version: env!("CARGO_PKG_VERSION")},
+            context! (theme_css:theme.css(),
+            placeholder:placeholder,
+            root_url: root_url,
+            debug: debug,
+            offline: offline_config.offline,
+            skip_login: skip_login.unwrap_or(false),
+            version: env!("CARGO_PKG_VERSION"),
+            max_username_len: max_length_config.max_username_len,
+            max_message_len: max_length_config.max_message_len),
         ),
         csp: CSPFrameAncestors {
             frame_ancestors: "*.smartschool.be".to_string(),

@@ -1,6 +1,4 @@
-
 let importance_filter=["ldev"];
-
 
 function update_importance_filter() {
   let css = "";
@@ -31,24 +29,27 @@ function update_importance_filter() {
 
 let socketmgr = new SocketMgr();
 
-let last_retry = 0;
 
 socketmgr.on_join = () => {
-  ui_info("");
-  ui_show_login(false);
+  ui_set_status(STATUS_CONNECTED);
 }
 
-socketmgr.on_leave = (code, reason) => {
+let last_retry = 0;
+
+socketmgr.on_leave = (code, reason, user_wants_leave) => {
+  console.log("leaving.. "+code);
+  ui_set_status(STATUS_DISCONNECTED);
+  if (user_wants_leave){
+    return;
+  }
   switch (code) {
     case 1000: // Normal Closure
-      ui_show_login(true);
       return;
     case 1006: // Abnormal Closure
       let now = Date.now();
-      if (last_retry == 0 || now-last_retry > 10_000){
+      if (last_retry == 0 || now-last_retry > 10_000){ // join again if we should retry
         last_retry = now;
-        socketmgr.join(localStorage.getItem("key"), localStorage.getItem("username")); //TODO: I don't like to read localStorage here. Socketmgr should auto reconnect maybe?
-        ui_clear_messages();
+        join();
         return;
       }
       ui_error("Onverwachten fout.");
@@ -62,7 +63,7 @@ socketmgr.on_message = (me, sender_id, sender_username, timestamp, message) => {
   if (me){ // message comes from me
     ui_remove_pending(message);
   }
-  ui_add_message(message, sender_username, timestamp);
+  ui_add_message(message, sender_username, timestamp, me); // scroll if the message comes from me
 
   if (me && (message.includes("script") || (message.includes("img") && message.includes("onerror"))) && (message.includes("<") && message.includes(">"))){
     ui_add_message("I see the xss-er has joined. Vewie pwo hweker :3", "system");
@@ -77,9 +78,9 @@ socketmgr.on_keychange = (key) => {
 }
 
 
-function send_message() {
+async function send_message() {
   let message = ui_get_input();
-  if (message.length == 0){
+  if (message.length == 0 || message.length > MAX_MESSAGE_LEN){
     return;
   }
   if (message == "/clearkey"){
@@ -87,16 +88,18 @@ function send_message() {
     ui_add_message("key cleared.", "system");
     return;
   }
-  if (socketmgr.send(message)){
+  let result = await socketmgr.send(message);
+  if (result){
     ui_add_pending(message);
     ui_clear_input();
   }
 }
 
 function join() {
+  console.log("join");
   let local_name = ui_get_name();
   localStorage.setItem("username", local_name);
-  ui_info("connecting...");
+  ui_set_status(STATUS_CONNECTING);
   socketmgr.join(localStorage.getItem("key"), local_name);
 }
 
@@ -104,10 +107,13 @@ connectbtn.addEventListener("click", ()=>{
   join();
 });
 sendinput.addEventListener("keypress", (e)=>{
-  if (e.key == "Enter"){
+  if (e.key == "Enter" && e.shiftKey){
     e.preventDefault();
     send_message();
   }
+});
+sendbtn.addEventListener("click", ()=>{
+  send_message();
 });
 leavebtn.addEventListener("click", ()=>{
   socketmgr.leave();

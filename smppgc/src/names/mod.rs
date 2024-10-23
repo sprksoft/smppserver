@@ -7,6 +7,8 @@ use thiserror::Error;
 mod userid;
 pub use userid::*;
 
+use crate::ChatConfig;
+
 #[derive(Error, Debug)]
 pub enum NameClaimError {
     #[error("Gebruikersnaam is ongeldig.")]
@@ -37,9 +39,14 @@ impl UsernameManager {
         }
     }
 
-    pub fn claim_name(&self, name: &str, user_id: UserId) -> Result<ClaimedName, NameClaimError> {
+    pub fn claim_name(
+        &self,
+        name: &str,
+        user_id: UserId,
+        max_name_len: usize,
+    ) -> Result<ClaimedName, NameClaimError> {
         let name: Arc<str> = name.into();
-        let norm_name = Self::normalize_name(&name).ok_or(NameClaimError::Invalid)?;
+        let norm_name = Self::normalize_name(&name, max_name_len).ok_or(NameClaimError::Invalid)?;
 
         {
             let mut slot = self
@@ -81,9 +88,9 @@ impl UsernameManager {
         }
     }
 
-    fn normalize_name<'a>(name: &'a str) -> Option<NormName> {
+    fn normalize_name<'a>(name: &'a str, max_len: usize) -> Option<NormName> {
         let name: &str = name.trim();
-        if name.len() > 20 || name.len() < 2 {
+        if name.len() > max_len || name.len() < 2 {
             return None;
         }
 

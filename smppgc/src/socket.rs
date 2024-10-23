@@ -12,7 +12,7 @@ use crate::{
     chat::Chat,
     mesg_filter::{self, Cmd, FilterResult},
     names::{NameClaimError, UserId, UsernameManager},
-    OfflineConfig,
+    MaxLengthConfig, OfflineConfig,
 };
 
 #[derive(Responder)]
@@ -31,6 +31,7 @@ pub async fn socket_v1(
     key: Option<&str>,
     ws: WebSocket,
     offline_config: &State<OfflineConfig>,
+    maxlen_config: &State<MaxLengthConfig>,
     chat: &State<Arc<Mutex<Chat>>>,
     usrnamemgr: &State<UsernameManager>,
 ) -> SocketV1Responder {
@@ -44,11 +45,13 @@ pub async fn socket_v1(
     };
 
     let chat: Arc<Mutex<Chat>> = chat.inner().clone();
+
     let name_lease = match key.clone() {
-        Some(key) => usrnamemgr.claim_name(username, key),
+        Some(key) => usrnamemgr.claim_name(username, key, maxlen_config.max_username_len),
         None => Err(NameClaimError::Invalid),
     };
 
+    let max_message_len = maxlen_config.max_message_len;
     SocketV1Responder::Channel(ws.channel(move |mut stream| {
         Box::pin(async move {
             let Some(key) = key else {
@@ -83,8 +86,9 @@ pub async fn socket_v1(
             };
             let (mut messages_receiver, messages_sender, mut join_reciever) =
                 chat.subscribe_events();
-            let rate_limit = chat.config().rate_limit.clone();
+            let config = chat.config();
             drop(chat);
+            let rate_limit = config.rate_limit.clone();
 
             let mut blockme = false;
             let mut burst = 0;
@@ -111,7 +115,7 @@ pub async fn socket_v1(
                         if last_mesg_sec < rate_limit.min_message_time_soft{
                             burst+=rate_limit.min_message_time_soft.saturating_sub(last_mesg_sec)*2.clamp(0, isize::MAX);
                         }
-                        match mesg_filter::filter(mesg){
+                        match mesg_filter::filter(mesg.clone(), max_message_len){
                             FilterResult::Cmd(Cmd::BlockMe) => {
                                 blockme=true;
                             },
@@ -119,10 +123,11 @@ pub async fn socket_v1(
                                 return Ok(());
                             }
                             FilterResult::Invalid => {},
-                            FilterResult::Message(mesg) => {
+                            FilterResult::Message(filtered_mesg) => {
                                 if !blockme{
-                                    trace!("got message from {}: {}", mesg.sender, mesg.content);
-                                    let _ = messages_sender.send(mesg);
+                                    trace!("got message from {}: {}", filtered_mesg.sender, filtered_mesg.content);
+                                    let _ = messages_sender.send(filtered_mesg);
+                                    client.forward(&mesg).await?;
                                 }
                             }
                         }
@@ -132,7 +137,9 @@ pub async fn socket_v1(
                     mesg = messages_receiver.recv() => {
                         match mesg{
                             Ok(mesg) => {
-                                client.forward(&mesg).await?;
+                                if mesg.sender_id != client.client_info().id(){
+                                    client.forward(&mesg).await?;
+                                }
                             }
                             Err(RecvError::Lagged(count)) => {
                                 error!("{} Messages lost", count);

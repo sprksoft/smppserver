@@ -17,7 +17,10 @@ use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
 use super::{joined_total, packet, Chat};
-use crate::names::{ClaimedName, UserId};
+use crate::{
+    names::{ClaimedName, UserId},
+    ChatConfig,
+};
 
 #[derive(Clone, Debug)]
 pub struct Message {
@@ -27,8 +30,8 @@ pub struct Message {
     pub sender_id: u16,
 }
 impl Message {
-    pub fn is_valid(&self) -> bool {
-        if self.content.as_bytes().len() > 100 {
+    pub fn is_valid(&self, max_len: usize) -> bool {
+        if self.content.len() > max_len {
             return false;
         }
         if self.is_empty() {

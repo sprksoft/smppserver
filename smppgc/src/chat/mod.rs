@@ -45,7 +45,7 @@ pub struct Chat {
     history: Arc<Mutex<DropVec<Message>>>,
     client_factory: ClientFactory,
 
-    config: ChatConfig,
+    config: Arc<ChatConfig>,
 }
 impl Chat {
     pub fn new(config: ChatConfig) -> Self {
@@ -70,7 +70,7 @@ impl Chat {
             clients,
             history,
             client_factory: ClientFactory::new(),
-            config,
+            config: config.into(),
         }
     }
 
@@ -145,8 +145,8 @@ impl Chat {
         Ok(client)
     }
 
-    pub fn config(&self) -> &ChatConfig {
-        &self.config
+    pub fn config(&self) -> Arc<ChatConfig> {
+        self.config.clone()
     }
 
     pub async fn history<'a>(&'a self) -> Vec<Message> {

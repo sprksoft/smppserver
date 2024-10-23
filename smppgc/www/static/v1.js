@@ -28,42 +28,59 @@ function mktime(time, parent_el) {
 }
 /* == smppgc/js/ui.js == */
 const leavebtn = document.getElementById("leavebtn");
+const sendbtn = document.getElementById("sendbtn");
 const sendinput = document.getElementById("send-input");
 const mesgs = document.getElementById("mesgs");
 const pending_mesgs = document.getElementById("pending-mesgs");
 const username_field = document.getElementById("name-input");
 const connectbtn = document.getElementById("connectbtn");
-const err_info_mesg = document.getElementById("err-info-mesg");
+const constatus = document.getElementById("connection-status");
+const err_mesg = document.getElementById("err-mesg");
 
 const login_popup=document.getElementById("login");
 
-const STICKERS=["404", "arch", "tux", "smpp"]; // avail stickers (used to prevent unneeded 404s to the server)
+const STICKERS=["404", "arch", "tux", "smpp", "gc"]; // avail stickers (used to prevent unneeded 404s to the server)
+
+const STATUS_DISCONNECTED=0;
+const STATUS_CONNECTING=1;
+const STATUS_CONNECTED=2;
+
+let cur_status = STATUS_DISCONNECTED;
 
 function ui_show_login(show) {
   if (show){
     login_popup.style="";
     sendinput.disabled=true;
-    ui_clear_messages();
   }else{
     login_popup.style="display:none"; sendinput.disabled=false;
-    sendinput.focus();
   }
 }
 
 
 function ui_error(error) {
-  if (error != ""){
-    ui_show_login(true);
-  }
-  err_info_mesg.className="err";
-  err_info_mesg.innerText=error;
+  err_mesg.innerText=error;
 }
-function ui_info(info){
-  if (info != ""){
-    ui_show_login(true);
+function ui_set_status(value){
+  switch(value){
+    case STATUS_CONNECTED:
+      ui_show_login(false);
+      constatus.style="display:none";
+      if (cur_status != value){
+        sendinput.focus();
+        ui_clear_chat();
+      }
+      break;
+    case STATUS_CONNECTING:
+      constatus.style="";
+      ui_show_login(false);
+      break;
+
+    case STATUS_DISCONNECTED:
+      ui_show_login(true);
+      constatus.style="display:none";
+      break;
   }
-  err_info_mesg.className="info";
-  err_info_mesg.innerText=info;
+  cur_status = value;
 }
 
 function ui_set_name(name) {
@@ -84,9 +101,10 @@ function ui_get_input() {
 }
 function ui_clear_input() {
   sendinput.value="";
+  sendinput.parentNode.dataset.replicatedValue="";
 }
 
-function ui_clear_messages() {
+function ui_clear_chat() {
   mesgs.innerHTML="";
   pending_mesgs.innerHTML="";
 }
@@ -159,7 +177,7 @@ function format_urls(message, parent_el) {
 }
 
 
-async function ui_add_message(message, sender, timestamp){
+async function ui_add_message(message, sender, timestamp, scroll=false){
   let top_el = document.createElement("div");
   top_el.classList.add("message_top");
   mksender(sender, top_el);
@@ -180,9 +198,15 @@ async function ui_add_message(message, sender, timestamp){
   msg_el.appendChild(user_content_el);
   msg_el.classList.add("message");
   msg_el.dataset.username=sender;
+
+  let should_scroll = Math.abs(mesgs.scrollHeight - mesgs.clientHeight - mesgs.scrollTop) <= 1 || scroll;
   mesgs.appendChild(msg_el);
-  msg_el.scrollIntoView();
+  console.log("should scroll: "+should_scroll)
+  if (should_scroll){
+    msg_el.scrollIntoView();
+  }
 }
+
 /* == smppgc/js/ws.js == */
 const CLOSED=3;
 const SUBID_SETUP=0;
@@ -238,6 +262,7 @@ class SocketMgr{
 
   #local_id;
   #users;
+  #user_wants_leave;
 
   constructor(){
     this.users={};
@@ -246,6 +271,7 @@ class SocketMgr{
   #on_special_message(sub_id, reader){
     switch(sub_id){
       case SUBID_SETUP:
+        this.on_join();
         this.local_id = reader.getUint16();
         this.local_key = reader.getString(0, KEY_LENGTH);
         this.on_keychange(this.local_key);
@@ -269,7 +295,6 @@ class SocketMgr{
         }
 
         console.log("Setup packet "+this.local_id+" "+this.local_key);
-        this.on_join();
         break;
       case SUBID_USERJOIN:
         let id = reader.getUint16(0);
@@ -285,6 +310,7 @@ class SocketMgr{
   }
 
   async join(key, username){
+    this.user_wants_leave=false;
     if (this.ws !== undefined){
       await this.ws.close();
     }
@@ -293,7 +319,9 @@ class SocketMgr{
     if (key !== undefined && key !== null && key !== ""){
       query+="&key="+key;
     }
-    this.ws = new WebSocket(WEBSOCKET_URL+"?"+query);
+    let fullurl = WEBSOCKET_URL+"?"+query;
+    console.log("creating socket: "+fullurl);
+    this.ws = new WebSocket(fullurl);
     this.ws.binaryType = "arraybuffer";
 
     this.ws.onclose = async (e) => {
@@ -308,7 +336,7 @@ class SocketMgr{
         }
         reason="Onverwachte fout.";
       }
-      this.on_leave(e.code, reason);
+      this.on_leave(e.code, reason, this.user_wants_leave);
     }
 
     this.ws.onmessage = async (e) =>{
@@ -334,6 +362,9 @@ class SocketMgr{
   }
 
   async send(message){
+    if (this.ws.readyState !== WebSocket.OPEN){
+      return false;
+    }
     if (this.ws.bufferedAmount > 2){
       return false;
     }
@@ -342,14 +373,13 @@ class SocketMgr{
   }
 
   async leave(){
+    this.user_wants_leave=true;
     await this.ws.close(1000, "Dag dag ik ga je missen. xxx");
   }
 
 }
 /* == smppgc/js/index.js == */
-
 let importance_filter=["ldev"];
-
 
 function update_importance_filter() {
   let css = "";
@@ -380,24 +410,27 @@ function update_importance_filter() {
 
 let socketmgr = new SocketMgr();
 
-let last_retry = 0;
 
 socketmgr.on_join = () => {
-  ui_info("");
-  ui_show_login(false);
+  ui_set_status(STATUS_CONNECTED);
 }
 
-socketmgr.on_leave = (code, reason) => {
+let last_retry = 0;
+
+socketmgr.on_leave = (code, reason, user_wants_leave) => {
+  console.log("leaving.. "+code);
+  ui_set_status(STATUS_DISCONNECTED);
+  if (user_wants_leave){
+    return;
+  }
   switch (code) {
     case 1000: // Normal Closure
-      ui_show_login(true);
       return;
     case 1006: // Abnormal Closure
       let now = Date.now();
-      if (last_retry == 0 || now-last_retry > 10_000){
+      if (last_retry == 0 || now-last_retry > 10_000){ // join again if we should retry
         last_retry = now;
-        socketmgr.join(localStorage.getItem("key"), localStorage.getItem("username")); //TODO: I don't like to read localStorage here. Socketmgr should auto reconnect maybe?
-        ui_clear_messages();
+        join();
         return;
       }
       ui_error("Onverwachten fout.");
@@ -411,7 +444,7 @@ socketmgr.on_message = (me, sender_id, sender_username, timestamp, message) => {
   if (me){ // message comes from me
     ui_remove_pending(message);
   }
-  ui_add_message(message, sender_username, timestamp);
+  ui_add_message(message, sender_username, timestamp, me); // scroll if the message comes from me
 
   if (me && (message.includes("script") || (message.includes("img") && message.includes("onerror"))) && (message.includes("<") && message.includes(">"))){
     ui_add_message("I see the xss-er has joined. Vewie pwo hweker :3", "system");
@@ -426,9 +459,9 @@ socketmgr.on_keychange = (key) => {
 }
 
 
-function send_message() {
+async function send_message() {
   let message = ui_get_input();
-  if (message.length == 0){
+  if (message.length == 0 || message.length > MAX_MESSAGE_LEN){
     return;
   }
   if (message == "/clearkey"){
@@ -436,16 +469,18 @@ function send_message() {
     ui_add_message("key cleared.", "system");
     return;
   }
-  if (socketmgr.send(message)){
+  let result = await socketmgr.send(message);
+  if (result){
     ui_add_pending(message);
     ui_clear_input();
   }
 }
 
 function join() {
+  console.log("join");
   let local_name = ui_get_name();
   localStorage.setItem("username", local_name);
-  ui_info("connecting...");
+  ui_set_status(STATUS_CONNECTING);
   socketmgr.join(localStorage.getItem("key"), local_name);
 }
 
@@ -453,10 +488,13 @@ connectbtn.addEventListener("click", ()=>{
   join();
 });
 sendinput.addEventListener("keypress", (e)=>{
-  if (e.key == "Enter"){
+  if (e.key == "Enter" && e.shiftKey){
     e.preventDefault();
     send_message();
   }
+});
+sendbtn.addEventListener("click", ()=>{
+  send_message();
 });
 leavebtn.addEventListener("click", ()=>{
   socketmgr.leave();

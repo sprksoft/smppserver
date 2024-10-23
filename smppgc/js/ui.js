@@ -1,40 +1,57 @@
 const leavebtn = document.getElementById("leavebtn");
+const sendbtn = document.getElementById("sendbtn");
 const sendinput = document.getElementById("send-input");
 const mesgs = document.getElementById("mesgs");
 const pending_mesgs = document.getElementById("pending-mesgs");
 const username_field = document.getElementById("name-input");
 const connectbtn = document.getElementById("connectbtn");
-const err_info_mesg = document.getElementById("err-info-mesg");
+const constatus = document.getElementById("connection-status");
+const err_mesg = document.getElementById("err-mesg");
 
 const login_popup=document.getElementById("login");
 
-const STICKERS=["404", "arch", "tux", "smpp"]; // avail stickers (used to prevent unneeded 404s to the server)
+const STICKERS=["404", "arch", "tux", "smpp", "gc"]; // avail stickers (used to prevent unneeded 404s to the server)
+
+const STATUS_DISCONNECTED=0;
+const STATUS_CONNECTING=1;
+const STATUS_CONNECTED=2;
+
+let cur_status = STATUS_DISCONNECTED;
 
 function ui_show_login(show) {
   if (show){
     login_popup.style="";
     sendinput.disabled=true;
-    ui_clear_messages();
   }else{
     login_popup.style="display:none"; sendinput.disabled=false;
-    sendinput.focus();
   }
 }
 
 
 function ui_error(error) {
-  if (error != ""){
-    ui_show_login(true);
-  }
-  err_info_mesg.className="err";
-  err_info_mesg.innerText=error;
+  err_mesg.innerText=error;
 }
-function ui_info(info){
-  if (info != ""){
-    ui_show_login(true);
+function ui_set_status(value){
+  switch(value){
+    case STATUS_CONNECTED:
+      ui_show_login(false);
+      constatus.style="display:none";
+      if (cur_status != value){
+        sendinput.focus();
+        ui_clear_chat();
+      }
+      break;
+    case STATUS_CONNECTING:
+      constatus.style="";
+      ui_show_login(false);
+      break;
+
+    case STATUS_DISCONNECTED:
+      ui_show_login(true);
+      constatus.style="display:none";
+      break;
   }
-  err_info_mesg.className="info";
-  err_info_mesg.innerText=info;
+  cur_status = value;
 }
 
 function ui_set_name(name) {
@@ -55,9 +72,10 @@ function ui_get_input() {
 }
 function ui_clear_input() {
   sendinput.value="";
+  sendinput.parentNode.dataset.replicatedValue="";
 }
 
-function ui_clear_messages() {
+function ui_clear_chat() {
   mesgs.innerHTML="";
   pending_mesgs.innerHTML="";
 }
@@ -130,7 +148,7 @@ function format_urls(message, parent_el) {
 }
 
 
-async function ui_add_message(message, sender, timestamp){
+async function ui_add_message(message, sender, timestamp, scroll=false){
   let top_el = document.createElement("div");
   top_el.classList.add("message_top");
   mksender(sender, top_el);
@@ -151,6 +169,12 @@ async function ui_add_message(message, sender, timestamp){
   msg_el.appendChild(user_content_el);
   msg_el.classList.add("message");
   msg_el.dataset.username=sender;
+
+  let should_scroll = Math.abs(mesgs.scrollHeight - mesgs.clientHeight - mesgs.scrollTop) <= 1 || scroll;
   mesgs.appendChild(msg_el);
-  msg_el.scrollIntoView();
+  console.log("should scroll: "+should_scroll)
+  if (should_scroll){
+    msg_el.scrollIntoView();
+  }
 }
+

@@ -8,13 +8,13 @@
     <title>Global Chat</title>
     {{/if}}
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="http{{root_url}}/static/logo.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1,interactive-widget=resizes-content">
+    <link rel="icon" href="{{root_url}}/static/logo.webp">
 
     <style type="text/css">
       {{theme_css}}
     </style>
-    <link rel="stylesheet" href="http{{root_url}}/static/v1.css?ckey={{version}}" />
+    <link rel="stylesheet" href="{{root_url}}/static/v1.css?ckey={{version}}" />
     <style id="importance_filter"></style>
 
 
@@ -33,58 +33,22 @@
         location = "/debug/reload_js"
       }
       {{/if}}
-      const WEBSOCKET_URL="ws{{root_url}}/socket/v1";
-      const ROOT_URL="http{{root_url}}";
+
+      let protocol = "ws://"
+      if (location.protocol.endsWith("s:")){
+        protocol =  "wss://"
+      }
+      const WEBSOCKET_URL=protocol+location.host+"{{root_url}}/socket/v1";
+      const ROOT_URL="{{root_url}}";
+      const MAX_MESSAGE_LEN="{{max_message_len}}";
     </script>
-    <script defer type="text/javascript" src="http{{root_url}}/static/v1.js?ckey={{version}}"></script>
+    <script defer type="text/javascript" src="{{root_url}}/static/v1.js?ckey={{version}}"></script>
     {{/if}}
   </head>
   <body>
-    <div id="typing-place">
-      <div id="mesgs">
-      </div>
-      <div class="bottom">
-        <div id="pending-mesgs"></div>
-        <div class="bottom-bar">
-          <input maxlength="100" id="send-input" type="text">
-          <button id="leavebtn" class="button">Disconnect</button>
-        </div>
-      </div>
-    </div>
+    {{> chat}}
 
-    <div id="login">
-      <div class="login-popup">
-        <div class="logo">
-          <img src="http{{root_url}}/static/logo.png" alt="Smartschool++ logo">
-          <div class="logo-text">
-            <span>Global</span>
-            <span>Chat</span>
-          </div>
-        </div>
-          <h3 class="warning">⚠️ Disclaimer ⚠️</h3>
-          <ul>
-            <li>Iedereen kan een <b class="text-accent">WILLEKEURIGE NAAM</b> kiezen.</li>
-            <li>Deze chat wordt <b class="text-accent">NIET GEMODEREERD</b>.</li>
-            <li>Deel <b class="text-accent">GEEN GEVOELIGE GEGEVENS</b> met anderen!</li>
-          </ul>
-        <span id="err-info-mesg"></span>
-
-        <div class="container">
-          <input maxlength="20" id="name-input" type="text" placeholder="({{placeholder}})" data-default_username="{{placeholder}}">
-        </div>
-        {{#if offline}}
-        <button disabled class="err button">Global Chat is momenteel offline. Sorry voor het ongemak.</button>
-        {{else}}
-        <div class="buttons">
-          {{!--{{#if ldeveuorg_key}}
-          <button id="lconnectbtn" class="button" data-key="{{ ldeveuorg_key }}">Connect as @{{ldeveuorg_name}}</button>
-          {{/if}}--}}
-          <button id="connectbtn" class="button">Connect</button>
-        </div>
-        {{/if}}
-      </div>
-    </div>
-
+    {{> login_popup}}
   </body>
 </html>
 

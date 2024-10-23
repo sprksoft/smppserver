@@ -1,4 +1,4 @@
-use crate::chat::client::Message;
+use crate::{chat::client::Message, ChatConfig};
 
 pub enum Cmd {
     KillMe,
@@ -20,8 +20,8 @@ fn parse_cmd(str: &str) -> Option<Cmd> {
     None
 }
 
-pub fn filter(mut mesg: Message) -> FilterResult {
-    if !mesg.is_valid() {
+pub fn filter(mut mesg: Message, max_msg_len: usize) -> FilterResult {
+    if !mesg.is_valid(max_msg_len) {
         return FilterResult::Invalid;
     };
     let content = mesg.content.as_ref().trim();
