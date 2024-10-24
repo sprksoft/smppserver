@@ -18,24 +18,18 @@ mod debug;
 mod mesg_filter;
 pub mod names;
 pub mod profanity;
+pub mod ratelimit;
 pub mod socket;
 mod template;
+mod userinfo;
 mod utils;
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(crate = "rocket::serde")]
-pub struct RateLimitConfig {
-    pub min_message_time_hard: isize,
-    pub min_message_time_soft: isize,
-    pub kick_burst: isize,
-}
+mod wsprotocol;
 
 #[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct ChatConfig {
     pub max_stored_messages: usize,
     pub max_users: u16,
-    pub rate_limit: RateLimitConfig,
 }
 
 #[derive(Deserialize, Debug)]
@@ -84,6 +78,7 @@ fn rocket() -> _ {
         .attach(static_routing::stage())
         .attach(template::stage())
         .attach(names::stage())
+        .attach(AdHoc::config::<ratelimit::RateLimitConfig>())
         .attach(AdHoc::config::<OfflineConfig>())
         .attach(AdHoc::config::<MaxLengthConfig>())
         .attach(AdHoc::on_ignite("chat", |r| async {
@@ -93,7 +88,7 @@ fn rocket() -> _ {
                 .expect("No chat config found");
 
             r.mount("/", routes![socket::socket_v1])
-                .manage(Arc::new(Mutex::new(Chat::new(config))))
+                .manage(Chat::new(config))
         }));
     #[cfg(debug_assertions)]
     r.attach(debug::stage())

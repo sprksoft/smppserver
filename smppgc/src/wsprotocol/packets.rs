@@ -1,7 +1,6 @@
 use tokio_tungstenite::tungstenite;
 
-use super::client::{ClientInfo, Message};
-use crate::names::UserId;
+use crate::{chat::Message, names::UserId, userinfo::UserInfo};
 
 pub const USERID_SPECIAL: u16 = 0;
 pub const SUBID_SETUP: u8 = 0;
@@ -10,7 +9,7 @@ pub const SUBID_USERJOIN: u8 = 1;
 pub fn new_setup<'a, 'b>(
     key: UserId,
     id: u16,
-    clients: Vec<ClientInfo>,
+    clients: Vec<UserInfo>,
     history: Vec<Message>,
 ) -> tokio_tungstenite::tungstenite::Message {
     //|    u16   | const USERID_SPECIAL
@@ -59,7 +58,7 @@ pub fn new_setup<'a, 'b>(
     }
     tokio_tungstenite::tungstenite::Message::Binary(data)
 }
-pub fn new_client_joined(client: &ClientInfo) -> tokio_tungstenite::tungstenite::Message {
+pub fn new_client_joined(client: &UserInfo) -> tokio_tungstenite::tungstenite::Message {
     //|  u16 | const USERID_SPECIAL
     //|  u8  | const SUBID_USERJOIN
     //| u16  | user id

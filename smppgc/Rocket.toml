@@ -7,7 +7,6 @@ max_message_len=150
 port = 8080
 offline=false
 
-[default.rate_limit]
 min_message_time_soft=400
 min_message_time_hard=50
 kick_burst=1000

@@ -1,24 +1,20 @@
-use std::{borrow::Cow, collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use log::*;
-use rocket_ws::{
-    frame::{CloseCode, CloseFrame},
-    stream::DuplexStream,
-};
 use tokio::sync::{
     broadcast::{self, error::RecvError},
     Mutex,
 };
 
-pub mod client;
-mod packet;
+mod message;
+pub use message::*;
 
 use crate::{
-    names::{ClaimedName, UserId},
-    utils::dropvec::DropVec,
+    names::ClaimedName,
+    userinfo::UserInfo,
+    utils::{dropvec::DropVec, IdCounter},
     ChatConfig,
 };
-use client::{Client, ClientFactory, ClientInfo, Message};
 use lmetrics::metrics;
 use thiserror::Error;
 
@@ -32,20 +28,18 @@ metrics! {
 pub enum NewClientError {
     #[error("Max concurrent user count reached")]
     MaxConcurrentUserCount,
-    #[error("Setup packet fail: {0}")]
-    SetupPacketError(#[from] rocket_ws::result::Error),
 }
 
 pub struct Chat {
     messages_sender: broadcast::Sender<Message>,
-    join_sender: broadcast::Sender<ClientInfo>,
-    left_sender: broadcast::Sender<ClientInfo>,
+    join_sender: broadcast::Sender<UserInfo>,
+    left_sender: broadcast::Sender<UserInfo>,
 
-    clients: Arc<Mutex<HashSet<ClientInfo>>>,
+    clients: Arc<Mutex<HashSet<UserInfo>>>,
     history: Arc<Mutex<DropVec<Message>>>,
-    client_factory: ClientFactory,
+    client_ids: IdCounter,
 
-    config: Arc<ChatConfig>,
+    config: ChatConfig,
 }
 impl Chat {
     pub fn new(config: ChatConfig) -> Self {
@@ -69,15 +63,15 @@ impl Chat {
             left_sender,
             clients,
             history,
-            client_factory: ClientFactory::new(),
+            client_ids: IdCounter::new(),
             config: config.into(),
         }
     }
 
     fn spawn_histrec(
-        mut left_receiver: broadcast::Receiver<ClientInfo>,
+        mut left_receiver: broadcast::Receiver<UserInfo>,
         mut messages_receiver: broadcast::Receiver<Message>,
-        clients: Arc<Mutex<HashSet<ClientInfo>>>,
+        clients: Arc<Mutex<HashSet<UserInfo>>>,
         history: Arc<Mutex<DropVec<Message>>>,
     ) {
         tokio::task::spawn(async move {
@@ -118,58 +112,69 @@ impl Chat {
         });
     }
 
-    pub async fn new_client(
-        &mut self,
-        mut ws: DuplexStream,
-        user_id: UserId,
-        leased_name: ClaimedName,
-    ) -> Result<Client, NewClientError> {
+    pub async fn new_client(&self, leased_name: ClaimedName) -> Result<ChatClient, NewClientError> {
         if self.config.max_users != 0
             && self.config.max_users <= self.clients.lock().await.len() as u16
         {
-            ws.close(Some(CloseFrame {
-                code: CloseCode::Again,
-                reason: Cow::Borrowed("Chat zit vol."),
-            }))
-            .await?;
             return Err(NewClientError::MaxConcurrentUserCount);
         }
-        let client = self
-            .client_factory
-            .new_client(ws, user_id, leased_name, &self)
-            .await
-            .map_err(|e| NewClientError::SetupPacketError(e))?;
-        let _ = self.join_sender.send(client.client_info()); // throws error when no receivers
-        self.clients.lock().await.insert(client.client_info());
+
+        let id = self.client_ids.new_id();
+        let user_info = UserInfo {
+            username: leased_name.into(),
+            id,
+        };
+        let client = ChatClient {
+            user_info,
+            left_sender: self.left_sender.clone(),
+            message_sender: self.messages_sender.clone(),
+            message_receiver: self.messages_sender.subscribe(),
+            join_receiver: self.join_sender.subscribe(),
+        };
+
+        let _ = self.join_sender.send(client.user_info()); // throws error when no receivers
+        self.clients.lock().await.insert(client.user_info());
+        joined_total::inc();
 
         Ok(client)
-    }
-
-    pub fn config(&self) -> Arc<ChatConfig> {
-        self.config.clone()
     }
 
     pub async fn history<'a>(&'a self) -> Vec<Message> {
         self.history.lock().await.iter().cloned().collect()
     }
-    pub async fn clients<'a>(&'a self) -> Vec<ClientInfo> {
+    pub async fn clients<'a>(&'a self) -> Vec<UserInfo> {
         self.clients.lock().await.iter().cloned().collect()
     }
+}
 
-    pub fn subscribe_events(
-        &self,
-    ) -> (
-        broadcast::Receiver<Message>,
-        broadcast::Sender<Message>,
-        broadcast::Receiver<ClientInfo>,
-    ) {
-        (
-            self.messages_sender.subscribe(),
-            self.messages_sender.clone(),
-            self.join_sender.subscribe(),
-        )
+pub struct ChatClient {
+    user_info: UserInfo,
+    left_sender: rocket::tokio::sync::broadcast::Sender<UserInfo>,
+    message_sender: broadcast::Sender<Message>,
+    pub message_receiver: broadcast::Receiver<Message>,
+    pub join_receiver: broadcast::Receiver<UserInfo>,
+}
+impl ChatClient {
+    #[inline]
+    pub fn user_info(&self) -> UserInfo {
+        self.user_info.clone()
     }
-    fn left_sender(&self) -> broadcast::Sender<ClientInfo> {
-        self.left_sender.clone()
+
+    #[inline]
+    pub fn send(&self, mesg: Message) {
+        let _ = self.message_sender.send(mesg);
+    }
+}
+impl Drop for ChatClient {
+    fn drop(&mut self) {
+        match self.left_sender.send(self.user_info()) {
+            Ok(_) => {}
+            Err(err) => {
+                error!(
+                    "Failed to send leave event (This will cause ghosts to appear): {}",
+                    err
+                )
+            }
+        };
     }
 }

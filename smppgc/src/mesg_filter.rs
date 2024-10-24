@@ -1,4 +1,4 @@
-use crate::{chat::client::Message, ChatConfig};
+use crate::chat::Message;
 
 pub enum Cmd {
     KillMe,
@@ -42,6 +42,3 @@ pub fn filter(mut mesg: Message, max_msg_len: usize) -> FilterResult {
 
     FilterResult::Message(mesg)
 }
-
-pub struct MesgFilter {}
-impl MesgFilter {}
