@@ -1,67 +1,93 @@
+use std::fmt::Debug;
+
 mod wordlist;
 
-#[derive(Debug, PartialEq)]
-pub enum StringTree<T> {
-    Node {
-        substring: Box<str>,
-        next: Vec<StringTree<T>>,
-    },
-    Leaf(Box<str>, T),
+#[derive(PartialEq)]
+struct StringTree {
+    children: Vec<StringTree>,
+    str: Box<str>,
+    leaf: bool,
 }
-impl<T> StringTree<T> {
-    pub fn from_iter(iter: impl Iterator<Item = (impl Into<Box<str>>, T)>) -> Self {
-        let mut root_node = StringTree::Node {
-            substring: "".into(),
-            next: Vec::new(),
-        };
-        for (string, item) in iter {
-            let boxx = string.into();
-            match root_node.partial_search_node(&boxx, &boxx) {
-                Some(node) => match node {
-                    Self::Leaf(str, item) => {}
-                    _ => {}
-                },
-                None => {}
+impl StringTree {
+    pub fn new_node(str: &str, children: Vec<StringTree>) -> Self {
+        Self {
+            children,
+            str: str.into(),
+            leaf: false,
+        }
+    }
+    pub fn new_leaf(str: impl Into<Box<str>>) -> Self {
+        Self {
+            children: vec![],
+            str: str.into(),
+            leaf: true,
+        }
+    }
+}
+impl Debug for StringTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.str)?;
+        if self.children.len() != 0 {
+            if self.leaf {
+                f.write_str("[ERROR]")?;
             }
+            f.write_str(":{ ")?;
+            for child in self.children.iter() {
+                child.fmt(f)?;
+                f.write_str(" ")?;
+            }
+
+            f.write_str("}")?;
+        }
+        Ok(())
+    }
+}
+
+impl StringTree {
+    pub fn from_iter(iter: impl Iterator<Item = impl Into<Box<str>>>) -> Self {
+        let mut root_node = Self::new_node("", vec![]);
+        for item in iter {
+            let into = item.into();
+            root_node.add(into, 0);
         }
 
         root_node
     }
 
-    pub fn add(&mut self, new_item: (Box<str>, T)) {
-        match self {
-            Self::Node { substring, next }
-            _=>panic!("Can't add to leaf node"),
+    fn common_str<'a>(str1: &'a str, str2: &str) -> &'a str {
+        for (i, (byte1, byte2)) in str1.bytes().zip(str2.bytes()).enumerate() {
+            if byte1 != byte2 {
+                return &str1[..i];
+            }
         }
+        str1
     }
 
-    pub fn partial_search_node(
-        &self,
-        search_str: &str,
-        searchsub_str: &str,
-    ) -> Option<&StringTree<T>> {
-        match self {
-            Self::Node { substring, next } => {
-                if searchsub_str.starts_with(substring.as_ref()) {
-                    let new_search_str = &searchsub_str[substring.len()..];
-                    for child in next.iter() {
-                        match child.partial_search_node(search_str, new_search_str) {
-                            Some(node) => return Some(node),
-                            None => {}
-                        }
-                    }
-                    Some(self)
-                } else {
-                    None
+    fn split_leaf(&mut self, mut common_str: Box<str>) {
+        self.leaf = false;
+        std::mem::swap(&mut common_str, &mut self.str);
+        self.children.push(Self::new_leaf(common_str));
+    }
+
+    pub fn add(&mut self, new_item: Box<str>, min_common: usize) -> bool {
+        let common = Self::common_str(self.str.as_ref(), new_item.as_ref());
+        if self.str.len() == 0 || common.len() > min_common {
+            for child in self.children.iter_mut() {
+                if child.add(new_item.clone(), common.len()) {
+                    return true;
                 }
             }
-            Self::Leaf(string, _) => {
-                if string.as_ref() == search_str {
-                    Some(self)
-                } else {
-                    None
+            if self.leaf {
+                self.split_leaf(common.into());
+            } else {
+                if common.len() < self.str.len() {
+                    //TODO: split node
                 }
             }
+            self.children.push(Self::new_leaf(new_item));
+            true
+        } else {
+            false
         }
     }
 }
@@ -71,46 +97,53 @@ mod tests {
     use super::*;
 
     #[test]
+    fn common_str() {
+        assert_eq!(StringTree::common_str("apple", "able"), "a");
+        assert_eq!(StringTree::common_str("able", "apple"), "a");
+        assert_eq!(StringTree::common_str("box", "boy"), "bo");
+        assert_eq!(StringTree::common_str("boy", "box"), "bo");
+        assert_eq!(StringTree::common_str("bo", "box"), "bo");
+        assert_eq!(StringTree::common_str("cow", "through"), "");
+    }
+
+    #[test]
     fn build_test() {
-        let wordlist = "apple\nable\nability\nboy\nbox\ncall";
-        let tree = StringTree::from_iter(wordlist.lines().map(|s| (s, ())));
-        let manual = StringTree::Node {
-            substring: "".into(),
-            next: vec![
-                StringTree::Node {
-                    substring: "a".into(),
-                    next: vec![
-                        StringTree::Leaf("apple".into(), ()),
-                        StringTree::Node {
-                            substring: "b".into(),
-                            next: vec![
-                                StringTree::Leaf("able".into(), ()),
-                                StringTree::Leaf("ability".into(), ()),
+        let wordlist = "able\nability\nboy\nbox\ncall\napple";
+        let tree = StringTree::from_iter(wordlist.lines());
+        let manual = StringTree::new_node(
+            "",
+            vec![
+                StringTree::new_node(
+                    "a".into(),
+                    vec![
+                        StringTree::new_leaf("apple"),
+                        StringTree::new_node(
+                            "ab",
+                            vec![
+                                StringTree::new_leaf("able"),
+                                StringTree::new_leaf("ability"),
                             ],
-                        },
+                        ),
                     ],
-                },
-                StringTree::Node {
-                    substring: "bo".into(),
-                    next: vec![
-                        StringTree::Leaf("boy".into(), ()),
-                        StringTree::Leaf("box".into(), ()),
-                    ],
-                },
-                StringTree::Leaf("call".into(), ()),
+                ),
+                StringTree::new_node(
+                    "bo",
+                    vec![StringTree::new_leaf("boy"), StringTree::new_leaf("box")],
+                ),
+                StringTree::new_leaf("call"),
             ],
-        };
+        );
 
         assert_eq!(tree, manual);
     }
 
-    #[test]
-    fn search() {
-        let tree = StringTree::from_iter(wordlist::LIST.lines().map(|s| (s, ())));
-
-        assert_eq!(
-            tree.partial_search_node("who", "who"),
-            Some(&StringTree::Leaf("who".into(), ()))
-        );
-    }
+    // #[test]
+    // fn search() {
+    //     let tree = StringTree::from_iter(wordlist::LIST.lines());
+    //
+    //     assert_eq!(
+    //         tree.partial_search_node("who", "who"),
+    //         Some(&StringTree::new_leaf("who"))
+    //     );
+    // }
 }
