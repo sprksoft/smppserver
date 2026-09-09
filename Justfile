@@ -33,7 +33,7 @@ sqlx-prepare:
     docker compose up --watch
 
 [working-directory('smppgc')]
-sqlx-reset-db: _is_rust_working db-up
+sqlx-reset-db: db-up
     cargo sqlx database reset
 
 deploy:
